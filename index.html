@@ -18,8 +18,21 @@ header .sp{flex:1}
 #scene{position:fixed;top:56px;left:0;right:0;bottom:0;background:#cfe3f2}
 #panel{position:fixed;top:56px;right:64px;width:clamp(330px,33vw,430px);bottom:0;background:#fff;border-left:1px solid var(--line);display:none;flex-direction:column;z-index:14;box-shadow:-6px 0 24px rgba(12,47,92,.25)}
 body.open #panel{display:flex}
-#ph{display:flex;align-items:center;justify-content:space-between;background:var(--navy);color:#fff;padding:8px 12px;font-weight:bold;font-size:14px}
-#ph button{border:0;background:rgba(255,255,255,.15);color:#fff;border-radius:6px;padding:4px 10px;font-size:15px;cursor:pointer}
+#ph{display:block;padding:0}
+#bClose{display:block;width:100%;border:0;background:#dc2626;color:#fff;font-weight:bold;font-size:15px;padding:12px;cursor:pointer;letter-spacing:.3px}
+#bClose:hover{background:#b91c1c}
+#bEnergy{border:0;border-radius:20px;padding:7px 14px;font-weight:bold;font-size:13px;cursor:pointer;background:#f59e0b;color:#3b2500;white-space:nowrap}
+#bEnergy.ok{background:#16a34a;color:#fff}
+#encard{position:fixed;top:62px;right:72px;width:340px;max-width:calc(100vw - 84px);background:#fff;border:1px solid var(--line);border-radius:12px;box-shadow:0 10px 30px rgba(12,47,92,.3);z-index:25;padding:12px 14px;display:none}
+body.en #encard{display:block}
+#encard h4{margin:0 0 8px;color:var(--navy);font-size:14px}
+.er{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--line);font-size:13px;gap:8px}
+.er small{display:block;color:#64748b;font-size:11px}
+.swb{width:54px;height:28px;border-radius:14px;border:0;background:#94a3b8;position:relative;cursor:pointer;flex:none}
+.swb:after{content:"";position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:11px;background:#fff;transition:left .2s}
+.swb.on{background:#16a34a}.swb.on:after{left:29px}
+.est{font-weight:bold}.est.ok{color:#16a34a}.est.no{color:#dc2626}
+.eb{display:flex;gap:8px;margin-top:10px}.eb button{flex:1;border:0;border-radius:8px;padding:10px;font-weight:bold;font-size:13px;cursor:pointer}
 #rail{position:fixed;top:64px;right:8px;width:56px;display:flex;flex-direction:column;gap:6px;z-index:15}
 #rail .tab{flex:none;border:0;border-radius:10px;background:rgba(12,47,92,.88);color:#fff;padding:7px 2px;font-size:9.5px;font-weight:bold;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:2px;box-shadow:0 2px 8px rgba(0,0,0,.2);border-bottom:0}
 #rail .tab i{font-style:normal;font-size:17px;line-height:1}
@@ -93,6 +106,9 @@ table{border-collapse:collapse;width:100%;font-size:12px}th,td{border:1px solid 
   #capX{display:none}#cap{padding:5px 10px}#capT{font-size:12.5px}
   .btn{padding:8px 10px;font-size:12px}
   header .brand b{font-size:15px}#clock{display:none}
+  #bEnergy{padding:6px 10px;font-size:12px}
+  header .brand small{display:none}
+  #encard{right:8px;left:8px;width:auto;max-width:none}
 }
 </style>
 </head>
@@ -100,6 +116,7 @@ table{border-collapse:collapse;width:100%;font-size:12px}th,td{border:1px solid 
 <header>
   <div class="brand"><small>SIEMENS · SIMATIC · TIA PORTAL</small><b>PTAS Calama · Maqueta 3D</b></div>
   <div class="sp"></div>
+  <button id="bEnergy">⚡ Energizar planta ▾</button>
   <span id="clock">LOCAL.HOUR 11:00</span>
   <span id="status" class="pill stop">PLANTA DETENIDA</span>
 </header>
@@ -117,7 +134,6 @@ table{border-collapse:collapse;width:100%;font-size:12px}th,td{border:1px solid 
     <button class="btn" id="bMore">Más ▸</button>
     <span id="more">
     <button class="btn em" id="bEm">Parada de emergencia</button>
-    <button class="btn sm tg" id="bTP">TP-BT OFF</button><button class="btn sm tg" id="bTG">Automático general TG OFF</button>
     <button class="btn sm tg" data-sp="1">x1</button><button class="btn sm tg act" data-sp="2">x2</button><button class="btn sm tg" data-sp="4">x4</button>
     <button class="btn sm tg act" id="bFollow">Seguir acciones</button>
     <button class="btn sm tg act" id="bLbl">Etiquetas</button>
@@ -133,7 +149,7 @@ table{border-collapse:collapse;width:100%;font-size:12px}th,td{border:1px solid 
   <button class="tab" data-t="maint"><i>🔧</i>Mantenc.</button>
 </div>
 <div id="panel">
-  <div id="ph"><span id="phT">Ladder</span><button id="bClose" title="Cerrar">✕</button></div>
+  <div id="ph"><button id="bClose">✕ Cerrar <span id="phT">Ladder</span></button></div>
   <div class="pane" id="p-ladder">
     <div class="fbbar">
       <button class="fbb act" data-fb="FB1">TK-PEAS</button><button class="fbb" data-fb="FB2">TK-ECUALIZADOR</button>
@@ -149,6 +165,14 @@ table{border-collapse:collapse;width:100%;font-size:12px}th,td{border:1px solid 
   <div class="pane" id="p-energy" style="display:none"><div id="energy"></div></div>
   <div class="pane" id="p-vars" style="display:none"><div id="vars"></div></div>
   <div class="pane" id="p-maint" style="display:none"><div id="maint"></div></div>
+</div>
+<div id="encard">
+  <h4>Energización de la planta</h4>
+  <div class="er"><span>1. TP-BT subestación<small>Interruptor 4x400 A · Ir 340 A</small></span><button class="swb" id="swTP" aria-label="TP-BT"></button></div>
+  <div class="er"><span>2. Automático general TG-PTAS<small>4x400 A · aguas arriba del medidor</small></span><button class="swb" id="swTG" aria-label="Automático general"></button></div>
+  <div class="er"><span>Medidor</span><span class="est" id="enMed">sin registro</span></div>
+  <div class="er" style="border:0"><span>Tableros T.D.F.yC</span><span class="est" id="enTab">sin tensión</span></div>
+  <div class="eb"><button id="bEnAll" style="background:#16a34a;color:#fff">⚡ Energizar todo</button><button id="bEnOff" style="background:#475569;color:#fff">Desenergizar</button></div>
 </div>
 <div id="info"><button id="infoX">Cerrar</button><div id="infoBody"></div></div>
 <div id="loading">Cargando maqueta 3D…</div>
@@ -683,7 +707,8 @@ var UI = (function () {
   }
 
   // ---------- controles ----------
-  function setTab(t) { state.tab = t; $("#phT").textContent = TABN[t] || t; document.querySelectorAll(".tab").forEach(function (b) { b.classList.toggle("act", state.panel && b.dataset.t === t); }); document.querySelectorAll(".pane").forEach(function (p) { p.style.display = p.id === "p-" + t ? "" : "none"; }); refresh(); }
+  var TABC = { ladder: "Ladder", levels: "Niveles", log: "Acciones", energy: "Energía", vars: "Variables", maint: "Mantenimiento" };
+  function setTab(t) { state.tab = t; $("#phT").textContent = TABC[t] || t; document.querySelectorAll(".tab").forEach(function (b) { b.classList.toggle("act", state.panel && b.dataset.t === t); }); document.querySelectorAll(".pane").forEach(function (p) { p.style.display = p.id === "p-" + t ? "" : "none"; }); refresh(); }
   function syncFbButtons() { document.querySelectorAll(".fbb").forEach(function (b) { b.classList.toggle("act", b.dataset.fb === state.fb); }); $("#rxsel").style.display = (state.fb === "FB3" || state.fb === "FB14") ? "" : "none"; document.querySelectorAll("#rxsel button").forEach(function (b) { b.classList.toggle("act", +b.dataset.rx === state.rx); }); }
   function refresh() {
     if (!state.panel) return;
@@ -703,7 +728,7 @@ var UI = (function () {
     detect();
     if (acc > 0.2) {
       acc = 0; refresh();
-      $("#clock").textContent = "LOCAL.HOUR " + hhmm();
+      $("#clock").textContent = "LOCAL.HOUR " + hhmm(); if (document.body.classList.contains("en")) syncBreakers();
       var on = running(); var st = $("#status"); st.textContent = state.emerg ? "PARADA DE EMERGENCIA" : on ? "PLANTA EN MARCHA" : "PLANTA DETENIDA"; st.className = "pill " + (state.emerg ? "em" : on ? "run" : "stop");
     }
   }
@@ -730,11 +755,18 @@ var UI = (function () {
     });
     $("#bStart").onclick = function () {
       if (state.emerg) return; started = true;
-      if (!T["Tension-OK"]) { note("Sin tensión: cierra el TP-BT y el automático general del TG-PTAS para dar START", false); stopTour(); go(T["Q-TPBT"] ? 2 : 1); return; }
+      if (!T["Tension-OK"]) { note("Sin tensión: toca ⚡ Energizar planta (arriba) antes de dar START", false); energyCard(true); stopTour(); go(T["Q-TPBT"] ? 2 : 1); return; }
       pulse(STARTS, 500); stopTour(); go(SCENE.STATIONS.findIndex(function (s) { return s.fb === "FB1"; }));
     };
-    $("#bTP").onclick = function () { toggleBreaker("Q-TPBT"); };
-    $("#bTG").onclick = function () { toggleBreaker("Q-General-TG"); };
+    $("#bEnergy").onclick = function () { energyCard(); };
+    $("#swTP").onclick = function () { toggleBreaker("Q-TPBT"); };
+    $("#swTG").onclick = function () {
+      if (!T["Q-TPBT"] && !T["Q-General-TG"]) note("Primero cierra el TP-BT de la subestación (paso 1)", false);
+      toggleBreaker("Q-General-TG");
+    };
+    $("#bEnAll").onclick = function () { setBreaker("Q-TPBT", true); setTimeout(function () { setBreaker("Q-General-TG", true); }, 900); };
+    $("#bEnOff").onclick = function () { setBreaker("Q-General-TG", false); setTimeout(function () { setBreaker("Q-TPBT", false); }, 600); };
+    document.addEventListener("keydown", function (e) { if (e.key === "Escape") { togglePanel(false); energyCard(false); $("#info").classList.remove("show"); } });
     $("#bStop").onclick = function () { pulse(STOPS, 500); };
     $("#bInicio").onclick = function () { state.tour = !state.tour; state.tourT = 0; this.classList.toggle("act", state.tour); if (state.tour) go(0); };
     $("#bPrev").onclick = function () { stopTour(); go(cur - 1); };
@@ -760,10 +792,16 @@ var UI = (function () {
     if (!state.tour) SCENE.focusTag(tag);
   }
   function syncBreakers() {
-    var a = $("#bTP"), b = $("#bTG");
-    a.textContent = "TP-BT " + (T["Q-TPBT"] ? "ON" : "OFF"); a.classList.toggle("act", T["Q-TPBT"]);
-    b.textContent = "Automático general TG " + (T["Q-General-TG"] ? "ON" : "OFF"); b.classList.toggle("act", T["Q-General-TG"]);
+    $("#swTP").classList.toggle("on", T["Q-TPBT"]); $("#swTG").classList.toggle("on", T["Q-General-TG"]);
+    var ok = T["Q-TPBT"] && T["Q-General-TG"];
+    var be = $("#bEnergy"); be.classList.toggle("ok", ok);
+    be.textContent = (ok ? "⚡ Planta energizada " : "⚡ Energizar planta ") + (document.body.classList.contains("en") ? "▴" : "▾");
+    var m = $("#enMed"), tb = $("#enTab");
+    m.textContent = ok ? Math.round(T["I-TG"]) + " A · " + f1(T["P-TG"], 1) + " kW" : (T["Q-TPBT"] ? "sin registro (general abierto)" : "sin registro"); m.className = "est " + (ok ? "ok" : "no");
+    tb.textContent = ok ? "energizados" : "sin tensión"; tb.className = "est " + (ok ? "ok" : "no");
   }
+  function setBreaker(tag, v) { if (!!T[tag] !== v) toggleBreaker(tag); }
+  function energyCard(v) { var on = v === undefined ? !document.body.classList.contains("en") : v; document.body.classList.toggle("en", on); syncBreakers(); }
   function note(txt, on) {
     var t = document.createElement("div"); t.className = "toast " + (on ? "on" : "off"); t.innerHTML = "<div><b>" + esc(txt) + "</b></div>";
     var box = $("#toasts"); box.prepend(t); while (box.children.length > 3) box.lastChild.remove();
@@ -797,7 +835,8 @@ var UI = (function () {
     document.querySelectorAll(".tab").forEach(function (b) { b.classList.toggle("act", state.panel && b.dataset.t === state.tab); });
     if (state.panel) refresh();
   }
-  return { init: init, tick: tick, station: station, stopTour: stopTour, info: info, note: function (a, b) { note(a, b); } };
+  function tapScene() { if (state.panel) togglePanel(false); if (document.body.classList.contains("en")) energyCard(false); }
+  return { init: init, tick: tick, station: station, stopTour: stopTour, info: info, tapScene: tapScene, note: function (a, b) { note(a, b); } };
 })();
 SPEED = 2;
 if (!window.THREE) { document.getElementById("loading").textContent = "No se pudo cargar la librería 3D (three.js). Revisa la conexión a internet y recarga la página."; } else {
@@ -1561,7 +1600,7 @@ var cvs = renderer.domElement, down = null;
 cvs.addEventListener("pointerdown", function (e) { drag = { x: e.clientX, y: e.clientY }; down = { x: e.clientX, y: e.clientY, t: Date.now() }; cam.path = null; UI.stopTour(); });
 window.addEventListener("pointermove", function (e) { if (!drag || pinch) return; orbit(e.clientX - drag.x, e.clientY - drag.y); drag = { x: e.clientX, y: e.clientY }; });
 window.addEventListener("pointerup", function (e) {
-  if (down && Math.hypot(e.clientX - down.x, e.clientY - down.y) < 6 && Date.now() - down.t < 400) doPick(e);
+  if (down && Math.hypot(e.clientX - down.x, e.clientY - down.y) < 6 && Date.now() - down.t < 400) { UI.tapScene(); doPick(e); }
   drag = null; down = null;
 });
 cvs.addEventListener("wheel", function (e) { e.preventDefault(); zoom(e.deltaY > 0 ? 1.1 : 0.9); }, { passive: false });
