@@ -2,293 +2,1613 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>PTAS Calama RA</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PTAS Calama · Maqueta 3D con ladder en línea</title>
 <style>
-/* VOICE: sala de control, clara y técnica, como un panel WinCC.
-   IDEA: el panel HMI del operador flotando sobre la maqueta viva de la planta.
-   PICTURE: la planta 3D a pantalla completa; el HMI es un panel lateral o una bandeja inferior.
-   COLOUR and TYPE: azul SIMATIC #0b2f5b, turquesa de botones #3fd6c6, verde marcha, rojo parada; Inter Tight + Inter.
-   LAYOUT: lienzo completo, HMI a la derecha sobre 900px, bandeja inferior en teléfono, ficha del recorrido arriba a la izquierda. */
-:root{color-scheme:light dark;--bg:light-dark(#dfe5ea,#14181c);--ink:#0e1a26;--hmi:#0b2f5b;--btn:#3fd6c6;--ok:#22b14c;--bad:#e8251a;--panel:#e9edf0}
-:root[data-theme=light]{color-scheme:light}:root[data-theme=dark]{color-scheme:dark}
-*{box-sizing:border-box;min-width:0}
-html,body{margin:0;height:100%;overflow:hidden;background:var(--bg);font:15px/1.45 Inter,system-ui,sans-serif;color:var(--ink)}
-#c{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none}
-#cam{position:fixed;inset:0;width:100%;height:100%;object-fit:cover;display:none}
-#ui{position:fixed;inset:0;pointer-events:none}
-#ui>*{pointer-events:auto}
-.hmi{position:absolute;right:max(14px,env(safe-area-inset-right));top:max(14px,env(safe-area-inset-top));width:340px;max-height:calc(100% - 28px);overflow:auto;background:var(--panel);border:3px solid #1b1f24;border-radius:10px;box-shadow:0 12px 40px #0006;color:#0e1a26}
-.hd{background:var(--hmi);color:#fff;padding:8px 12px;display:flex;justify-content:space-between;align-items:center;gap:8px}
-.hd b{font:700 15px "Inter Tight",Inter,sans-serif;color:#3fd6c6;letter-spacing:.02em}
-.hd small{display:block;font-size:12px;opacity:.85}
-.hd .t{text-align:right;font-variant-numeric:tabular-nums;font-size:13px}
-.st{margin:10px 12px 0;padding:8px 10px;border-radius:6px;font:700 14px "Inter Tight",sans-serif;text-align:center;color:#fff;background:#5d6670;transition:background .3s}
-.st.on{background:var(--ok)}.st.seq{background:#e6a100}
-.cmd{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;padding:10px 12px}
-button{font:700 14px "Inter Tight",Inter,sans-serif;min-height:44px;border-radius:6px;border:2px solid #1b1f24;cursor:pointer;color:#0e1a26;background:var(--btn);box-shadow:inset 0 -3px 0 #0003}
-button:active{transform:translateY(1px);box-shadow:none}
-button:focus-visible{outline:3px solid #ffbf00;outline-offset:2px}
-#bStart{background:var(--ok);color:#fff}#bAR{background:#0b2f5b;color:#fff;font-size:12.5px;line-height:1.1}#bStop{background:var(--bad);color:#fff}
-.nav{display:flex;flex-wrap:wrap;gap:6px;padding:0 12px 10px}
-.nav button{flex:1 1 90px;min-height:38px;font-size:12px}
-.rd{display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:0 12px 10px}
-.rd div{background:#fff;border:1px solid #b9c2ca;border-radius:5px;padding:5px 8px}
-.rd span{display:block;font-size:11px;color:#4a5560}
-.rd b{font:700 17px "Inter Tight",sans-serif;font-variant-numeric:tabular-nums;white-space:nowrap}
-.eq{padding:0 12px 10px;display:grid;grid-template-columns:repeat(auto-fill,minmax(62px,1fr));gap:4px}
-.eq i{font:600 10.5px Inter,sans-serif;font-style:normal;text-align:center;padding:4px 2px;border-radius:4px;background:#c9d0d6;color:#33404c;white-space:nowrap}
-.eq i.on{background:var(--ok);color:#fff}.eq i.sb{background:#f2c94c;color:#3a2c00}
-.log{margin:0 12px 12px;background:#0e1a26;color:#9ef0c4;font:12px/1.5 ui-monospace,monospace;border-radius:5px;padding:6px 8px;height:82px;overflow:hidden}
-.tour{position:absolute;left:max(14px,env(safe-area-inset-left));top:max(14px,env(safe-area-inset-top));width:min(400px,calc(100% - 380px));background:#0b2f5bf2;color:#fff;border-radius:10px;padding:14px 16px;display:none;box-shadow:0 12px 40px #0006}
-.tour.show{display:block}
-.tour .n{font:600 12px Inter,sans-serif;color:#3fd6c6}
-.tour h2{font:700 22px/1.1 "Inter Tight",sans-serif;margin:4px 0 6px;text-wrap:balance}
-.tour p{margin:0 0 6px;font-size:14.5px}
-.tour ul{margin:0 0 8px;padding-left:18px;font-size:13.5px}
-.tour .bar{height:4px;background:#ffffff33;border-radius:2px;overflow:hidden;margin:8px 0}
-.tour .bar i{display:block;height:100%;width:0;background:#3fd6c6}
-.tour .bt{display:flex;gap:8px}.tour .bt button{flex:1;min-height:40px;font-size:13px}
-.msg{position:absolute;left:50%;bottom:24px;transform:translateX(-50%);background:#0e1a26ee;color:#fff;padding:10px 14px;border-radius:8px;max-width:min(520px,90vw);display:none;font-size:14px;text-align:center}
-.msg.show{display:block}
-.brand{position:absolute;left:max(14px,env(safe-area-inset-left));bottom:max(14px,env(safe-area-inset-bottom));font:600 12px Inter,sans-serif;color:#33404c;background:#ffffffcc;padding:6px 10px;border-radius:6px}
-#exitAR{display:none;position:absolute;left:14px;top:14px;background:#1b1f24;color:#fff}
-.min{display:none}
-@media(max-width:900px){
- .hmi{left:8px;right:8px;top:auto;bottom:max(8px,env(safe-area-inset-bottom));width:auto;max-height:48%}
- .hmi.fold .x{display:none}
- .min{display:inline-block;min-height:32px;font-size:12px;padding:0 10px;background:#ffffff22;color:#fff;border-color:#ffffff55}
- .tour{width:auto;right:8px;left:8px;top:max(8px,env(safe-area-inset-top));padding:10px 12px}
- .tour h2{font-size:18px}.tour ul{display:none}
- .brand{display:none}
+:root{--navy:#0c2f5c;--teal:#3dd6c6;--g:#16a34a;--r:#dc2626;--bg:#f4f7fb;--line:#d5deea}
+*{box-sizing:border-box}html,body{margin:0;height:100%;overflow:hidden;font-family:Arial,Helvetica,sans-serif;color:#1f2937;background:#0c2f5c}
+header{position:fixed;top:0;left:0;right:0;height:56px;background:var(--navy);color:#fff;display:flex;align-items:center;gap:14px;padding:0 16px;z-index:20}
+header .brand small{display:block;color:var(--teal);font-weight:bold;font-size:11px;letter-spacing:.5px}
+header .brand b{font-size:18px}
+header .sp{flex:1}
+.pill{padding:5px 12px;border-radius:20px;font-weight:bold;font-size:12px}
+.pill.run{background:var(--g)}.pill.stop{background:#475569}.pill.em{background:var(--r);animation:bl 1s infinite}
+@keyframes bl{50%{opacity:.5}}
+#clock{font-family:Consolas,monospace;font-size:13px;background:rgba(255,255,255,.1);padding:5px 10px;border-radius:6px}
+#scene{position:fixed;top:56px;left:0;right:430px;bottom:0;background:#cfe3f2}
+body.nopanel #scene{right:0}
+#panel{position:fixed;top:56px;right:0;width:430px;bottom:0;background:#fff;border-left:1px solid var(--line);display:flex;flex-direction:column;z-index:10}
+body.nopanel #panel{display:none}
+.tabs{display:flex;border-bottom:1px solid var(--line);background:var(--bg)}
+.tab{flex:1;border:0;background:none;padding:11px 2px;font-weight:bold;font-size:11.5px;color:#475569;cursor:pointer;border-bottom:3px solid transparent}
+.tab.act{color:var(--navy);border-bottom-color:var(--teal);background:#fff}
+.pane{flex:1;overflow:auto;padding:10px 12px}
+.fbbar{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:6px}
+.fbb,.rxb,#rxsel button{border:1px solid var(--line);background:#fff;border-radius:6px;padding:5px 8px;font-size:11.5px;cursor:pointer;color:var(--navy);font-weight:bold}
+.fbb.act,.rxb.act,#rxsel button.act{background:var(--navy);color:#fff;border-color:var(--navy)}
+#fbname{font-weight:bold;color:var(--navy);margin:6px 0;font-size:13px}
+#fbname::before{content:"";display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--g);margin-right:6px;animation:bl 1.4s infinite}
+.rung{border:1px solid var(--line);border-radius:8px;margin-bottom:8px;overflow-x:auto;background:#fbfdff}
+.rung.on{border-color:#86efac;background:#f6fef9}
+.rh{font-size:11.5px;padding:6px 8px;color:#334155;border-bottom:1px solid var(--line);background:rgba(241,245,249,.6)}
+.rung svg{display:block}
+.el:hover rect{fill:rgba(61,214,198,.12)}
+.legend{font-size:11px;color:#64748b;margin:6px 0 8px}
+.legend i{display:inline-block;width:22px;height:0;border-top:3px solid var(--g);vertical-align:middle;margin:0 4px}
+.legend i.b{border-top:2px dashed #5b7fb0}
+.g{border:1px solid var(--line);border-radius:8px;padding:7px 9px;margin-bottom:7px;cursor:pointer;background:#fff}
+.gh{display:flex;justify-content:space-between;font-size:12px;margin-bottom:5px}.gh b{color:var(--navy)}
+.bar{position:relative;height:14px;background:#e2e8f0;border-radius:7px;margin:4px 0 14px}
+.fill{position:absolute;left:0;top:0;bottom:0;background:linear-gradient(90deg,#4f8fb8,#5fb3e0);border-radius:7px;transition:width .2s}
+.bar.fl .fill{background:linear-gradient(90deg,#0891b2,#22d3ee)}
+.mk{position:absolute;top:-4px;bottom:-4px;width:2px;background:#64748b}
+.mk span{position:absolute;top:21px;left:50%;transform:translateX(-50%);font-size:9.5px;font-weight:bold;color:#64748b;white-space:nowrap}
+.mk.on{background:var(--g)}.mk.on span{color:var(--g)}
+.gn{font-size:11.5px;color:#64748b;margin-top:2px}.gn.on{color:var(--g);font-weight:bold}
+.gsel{font-size:12px;margin-bottom:8px;display:flex;gap:4px;align-items:center;flex-wrap:wrap}
+#hud{position:fixed;top:68px;left:12px;width:300px;max-height:calc(100vh - 230px);background:rgba(255,255,255,.95);border:1px solid var(--line);border-radius:10px;z-index:12;display:flex;flex-direction:column;box-shadow:0 4px 16px rgba(12,47,92,.15)}
+#hudT{padding:8px 10px;font-weight:bold;color:#fff;background:var(--navy);border-radius:10px 10px 0 0;cursor:pointer;font-size:13px}
+#hudT::after{content:" ▾";float:right}#hud.min #hudT::after{content:" ▸"}
+#hudBody{overflow:auto;padding:8px}#hud.min #hudBody{display:none}#hud.min #hudT{border-radius:10px}
+#bottom{position:fixed;left:12px;right:442px;bottom:12px;z-index:12;display:flex;flex-direction:column;gap:8px;align-items:center;pointer-events:none}
+body.nopanel #bottom{right:12px}
+#cap{background:rgba(12,47,92,.92);color:#fff;border-radius:10px;padding:9px 14px;max-width:760px;pointer-events:auto}
+#capT{font-weight:bold;color:var(--teal);font-size:14px}#capX{font-size:12.5px;line-height:1.4;margin-top:3px}
+#ctrl{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;pointer-events:auto}
+.btn{border:0;border-radius:8px;padding:10px 14px;font-weight:bold;font-size:13px;cursor:pointer;background:#fff;color:var(--navy);box-shadow:0 2px 8px rgba(0,0,0,.18)}
+.btn.sm{padding:6px 10px;font-size:12px}
+.btn.start{background:var(--g);color:#fff}.btn.stop{background:#475569;color:#fff}.btn.ini{background:var(--navy);color:#fff;border:2px solid var(--teal)}
+.btn.ini.act{background:var(--teal);color:var(--navy)}.btn.em{background:var(--r);color:#fff}.btn.em.act{animation:bl 1s infinite}
+.btn.tg.act{background:var(--teal);color:var(--navy)}
+#toasts{position:fixed;top:68px;right:442px;width:330px;z-index:15;display:flex;flex-direction:column;gap:6px}
+body.nopanel #toasts{right:12px}
+.toast{background:#fff;border-left:6px solid var(--g);border-radius:8px;padding:8px 10px;font-size:12px;box-shadow:0 4px 14px rgba(0,0,0,.2);transition:opacity .5s,transform .5s}
+.toast.off{border-left-color:var(--r)}.toast small{color:#64748b;font-weight:bold}.toast.bye{opacity:0;transform:translateX(20px)}
+.lg{border:1px solid var(--line);border-left:5px solid var(--g);border-radius:6px;padding:6px 8px;margin-bottom:6px;font-size:12px;cursor:pointer}
+.lg.off{border-left-color:var(--r)}.lt{color:#64748b;font-size:11px;font-weight:bold}
+table{border-collapse:collapse;width:100%;font-size:12px}th,td{border:1px solid var(--line);padding:4px 6px;text-align:left;vertical-align:top}th{background:var(--bg);color:var(--navy)}
+#vars tr[data-tag]{cursor:pointer}.v1{color:var(--g);font-weight:bold}.v0{color:#64748b}
+.mb{margin-bottom:14px}.mb h4{margin:6px 0 2px;color:var(--navy)}h3{color:var(--navy);font-size:14px;margin:14px 0 6px}
+.muted{color:#64748b;font-size:12px}.warn{background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;padding:8px;font-size:12px;line-height:1.45}
+#info{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%) scale(.96);width:min(560px,94vw);max-height:80vh;overflow:auto;background:#fff;border-radius:12px;z-index:30;padding:14px 16px;box-shadow:0 10px 40px rgba(0,0,0,.35);display:none}
+#info.show{display:block;transform:translate(-50%,-50%)}#infoX{position:sticky;top:0;float:right;border:0;background:var(--navy);color:#fff;border-radius:6px;padding:5px 10px;cursor:pointer}
+#loading{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;color:#fff;background:var(--navy);z-index:50;font-size:16px;text-align:center;padding:20px}
+@media (max-width:820px){
+  #scene{right:0;bottom:44vh}
+  #panel{top:auto;height:44vh;width:100%;border-left:0;border-top:2px solid var(--teal)}
+  body.nopanel #scene{bottom:0}
+  #bottom{right:12px;bottom:calc(44vh + 8px)}body.nopanel #bottom{bottom:12px}
+  #toasts{right:8px;left:8px;width:auto;top:62px}
+  #hud{display:none}
+  #cap{padding:6px 10px}#capX{display:none}
+  .btn{padding:8px 10px;font-size:12px}
+  header .brand b{font-size:15px}#clock{display:none}
 }
-@media(prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@600;700&family=Inter:wght@400;600&display=swap" rel="stylesheet">
-<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}</script>
 </head>
 <body>
-<video id="cam" playsinline muted autoplay></video>
-<canvas id="c"></canvas>
-<div id="ui">
- <button id="exitAR">Salir de RA</button>
- <section class="tour" id="tour" aria-live="polite">
-  <div class="n" id="tN"></div><h2 id="tH"></h2><p id="tP"></p><ul id="tL"></ul>
-  <div class="bar"><i id="tBar"></i></div>
-  <div class="bt"><button id="tPrev">Anterior</button><button id="tNext">Siguiente</button><button id="tEnd">Salir</button></div>
- </section>
- <aside class="hmi" id="hmi">
-  <div class="hd"><div><b>SIEMENS</b><small>SIMATIC HMI · PTAS Calama</small></div><div class="t" id="clk"></div><button class="min" id="bFold">▾</button></div>
-  <div class="st" id="st">PLANTA DETENIDA</div>
-  <div class="cmd"><button id="bStart">START</button><button id="bStop">STOP</button><button id="bTour">INICIO</button><button id="bAR">VER EN RA</button></div>
-  <div class="x">
-   <div class="nav" id="nav"></div>
-   <div class="rd">
-    <div><span>FIT-101 caudal entrada</span><b id="vQ1">0,0 m³/h</b></div>
-    <div><span>FIT-401 caudal salida</span><b id="vQ4">0,0 m³/h</b></div>
-    <div><span>Nivel PEAS (LSH/LSL-101)</span><b id="vL1">62 %</b></div>
-    <div><span>Nivel ecualizador (151)</span><b id="vL2">55 %</b></div>
-    <div><span>O₂ disuelto reactores</span><b id="vOD">0,0 mg/L</b></div>
-    <div><span>Cloro residual</span><b id="vCl">0,0 mg/L</b></div>
-   </div>
-   <div class="eq" id="eq"></div>
-   <div class="log" id="log"></div>
+<header>
+  <div class="brand"><small>SIEMENS · SIMATIC · TIA PORTAL</small><b>PTAS Calama · Maqueta 3D</b></div>
+  <div class="sp"></div>
+  <span id="clock">LOCAL.HOUR 11:00</span>
+  <span id="status" class="pill stop">PLANTA DETENIDA</span>
+</header>
+<div id="scene"></div>
+<div id="hud"><div id="hudT">Niveles y caudalímetros · umbrales del ladder</div><div id="hudBody"></div></div>
+<div id="toasts"></div>
+<div id="bottom">
+  <div id="cap"><div id="capT"></div><div id="capX"></div></div>
+  <div id="ctrl">
+    <button class="btn" id="bPrev">◀ Anterior</button>
+    <button class="btn start" id="bStart">START</button>
+    <button class="btn stop" id="bStop">STOP</button>
+    <button class="btn ini" id="bInicio">INICIO</button>
+    <button class="btn" id="bNext">Siguiente ▶</button>
+    <button class="btn em" id="bEm">Parada de emergencia</button>
+    <button class="btn sm tg" id="bTP">TP-BT OFF</button><button class="btn sm tg" id="bTG">Automático general TG OFF</button>
+    <button class="btn sm tg" data-sp="1">x1</button><button class="btn sm tg act" data-sp="2">x2</button><button class="btn sm tg" data-sp="4">x4</button>
+    <button class="btn sm tg act" id="bFollow">Seguir acciones</button>
+    <button class="btn sm tg act" id="bLbl">Etiquetas</button>
+    <button class="btn sm" id="bPanel">Panel</button>
   </div>
- </aside>
- <div class="brand">PTAS Calama · BLH Calama · Iscar SpA</div>
- <div class="msg" id="msg"></div>
 </div>
-<script type="module">
-import * as THREE from "three";
-import { OrbitControls } from "three/addons/controls/OrbitControls.js";
-{
-const $ = id => document.getElementById(id);
-const cv = $("c");
-const R = new THREE.WebGLRenderer({ canvas: cv, antialias: true, alpha: true });
-R.setPixelRatio(Math.min(devicePixelRatio, 2)); R.shadowMap.enabled = true; R.shadowMap.type = THREE.PCFSoftShadowMap;
-R.outputColorSpace = THREE.SRGBColorSpace;
-const S = new THREE.Scene(); const SKY = new THREE.Color(0xdfe5ea); S.background = SKY;
-const cam = new THREE.PerspectiveCamera(42, 1, 0.01, 500); cam.position.set(30, 34, 46);
-const ctl = new OrbitControls(cam, cv); ctl.target.set(-2, 0, 0); ctl.enableDamping = true; ctl.maxPolarAngle = 1.45; ctl.minDistance = 8; ctl.maxDistance = 220;
-S.add(new THREE.HemisphereLight(0xffffff, 0x8a9096, 1.6));
-const sun = new THREE.DirectionalLight(0xffffff, 2.2); sun.position.set(25, 45, 20); sun.castShadow = true;
-sun.shadow.mapSize.set(2048, 2048); Object.assign(sun.shadow.camera, { left: -45, right: 45, top: 30, bottom: -30, far: 120 }); S.add(sun);
-const P = new THREE.Group(); S.add(P);  // planta
-const M = c => new THREE.MeshStandardMaterial({ color: c, roughness: .7, metalness: .05 });
-const mat = { slab: M(0xc9ccce), conc: M(0x8c949c), concIn: M(0x6d757d), white: M(0xf1efe8), black: M(0x1c1c1c), rail: M(0xe9c21a), raw: M(0xb08f3c), clear: M(0x3cc7d8), red: M(0xd2232a), blue: M(0x2a6fd6), gray: M(0xd5d8da), dark: M(0x3a4048), brown: new THREE.MeshStandardMaterial({ color: 0x8a6a2e, roughness: .35, transparent: true, opacity: .92 }), green: new THREE.MeshStandardMaterial({ color: 0x6fb7a0, roughness: .25, transparent: true, opacity: .9 }) };
-function box(w, h, d, m, x, y, z, par = P) { const o = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); o.position.set(x, y, z); o.castShadow = o.receiveShadow = true; par.add(o); return o; }
-function cyl(r, l, m, x, y, z, ax = "x", par = P, seg = 28) { const o = new THREE.Mesh(new THREE.CylinderGeometry(r, r, l, seg), m); if (ax === "x") o.rotation.z = Math.PI / 2; if (ax === "z") o.rotation.x = Math.PI / 2; o.position.set(x, y, z); o.castShadow = o.receiveShadow = true; par.add(o); return o; }
-function pipe(pts, r, m) { for (let i = 0; i < pts.length - 1; i++) { const a = new THREE.Vector3(...pts[i]), b = new THREE.Vector3(...pts[i + 1]); const l = a.distanceTo(b); const o = new THREE.Mesh(new THREE.CylinderGeometry(r, r, l, 12), m); o.position.copy(a).add(b).multiplyScalar(.5); o.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), b.clone().sub(a).normalize()); o.castShadow = true; P.add(o); const j = new THREE.Mesh(new THREE.SphereGeometry(r * 1.25, 10, 8), m); j.position.copy(b); P.add(j); } }
-function label(t, x, y, z, s = 1, col = "#ffe600") { const c = document.createElement("canvas"); const FN = "800 60px 'Inter Tight',Arial,sans-serif"; let g = c.getContext("2d"); g.font = FN; const tw = Math.ceil(g.measureText(t).width) + 40; c.width = tw; c.height = 96; g = c.getContext("2d"); g.font = FN; g.textAlign = "center"; g.textBaseline = "middle"; g.lineWidth = 10; g.strokeStyle = "#1b1f24"; g.strokeText(t, tw / 2, 50); g.fillStyle = col; g.fillText(t, tw / 2, 50); const tx = new THREE.CanvasTexture(c); tx.colorSpace = THREE.SRGBColorSpace; const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tx, depthTest: false })); sp.scale.set(1.5 * s * tw / 96, 1.5 * s, 1); sp.position.set(x, y, z); sp.renderOrder = 9; P.add(sp); return sp; }
-// losa
-box(74, .4, 40, mat.slab, -4, -.2, 0);
-const RZ = [-9.6, -4.8, 0, 4.8, 9.6];
-// ---------- equipos
-const EQ = []; // {tag,desc,st,rot,lamp,on,sb}
-function motor(tag, desc, st, x, y, z, kind = "pump", sb = false) {
-  const g = new THREE.Group(); g.position.set(x, y, z); P.add(g);
-  if (kind === "pump") { cyl(.35, .7, mat.blue, 0, .35, 0, "x", g); cyl(.28, .6, mat.dark, .6, .35, 0, "x", g); }
-  else if (kind === "blower") { box(.9, .7, .7, mat.red, 0, .35, 0, g); cyl(.22, .5, mat.dark, 0, .95, 0, "y", g); }
-  else if (kind === "dos") { cyl(.25, .6, M(0xf2f2f2), 0, .3, 0, "y", g); box(.3, .2, .3, mat.blue, 0, .7, 0, g); }
-  else if (kind === "sub") { cyl(.3, .8, mat.dark, 0, .4, 0, "y", g); }
-  const rot = new THREE.Mesh(new THREE.BoxGeometry(.06, .55, .12), mat.rail); rot.position.set(kind === "pump" ? -.4 : 0, kind === "blower" ? 1.25 : .35, kind === "pump" ? 0 : .38); if (kind === "pump") rot.rotation.y = Math.PI / 2; g.add(rot);
-  const lamp = new THREE.Mesh(new THREE.SphereGeometry(.16, 12, 10), new THREE.MeshStandardMaterial({ color: 0x8a1010, emissive: 0x300000 })); lamp.position.set(0, kind === "blower" ? 1.45 : 1.0, 0); g.add(lamp);
-  const e = { tag, desc, st, g, rot, lamp, on: false, sb }; EQ.push(e); return e;
+<div id="panel">
+  <div class="tabs">
+    <button class="tab act" data-t="ladder">Ladder</button>
+    <button class="tab" data-t="levels">Niveles</button>
+    <button class="tab" data-t="log">Acciones</button>
+    <button class="tab" data-t="energy">Energía</button>
+    <button class="tab" data-t="vars">Variables</button>
+    <button class="tab" data-t="maint">Mantenimiento</button>
+  </div>
+  <div class="pane" id="p-ladder">
+    <div class="fbbar">
+      <button class="fbb act" data-fb="FB1">TK-PEAS</button><button class="fbb" data-fb="FB2">TK-ECUALIZADOR</button>
+      <button class="fbb" data-fb="FB3">TK-REACTOR</button><button class="fbb" data-fb="FB14">CLORADOR</button><button class="fbb" data-fb="FB13">AGUA-TRATADA</button>
+    </div>
+    <div id="rxsel" class="fbbar" style="display:none">Reactor: <button data-rx="1">1</button><button data-rx="2">2</button><button data-rx="3">3</button><button data-rx="4">4</button><button data-rx="5">5</button></div>
+    <div id="fbname"></div>
+    <div class="legend"><i></i>con energía (1) <i class="b"></i>sin energía (0) · toca un contacto o bobina para verlo en la maqueta</div>
+    <div id="ladder"></div>
+  </div>
+  <div class="pane" id="p-levels" style="display:none"><div id="levels"></div></div>
+  <div class="pane" id="p-log" style="display:none"><div id="log"></div></div>
+  <div class="pane" id="p-energy" style="display:none"><div id="energy"></div></div>
+  <div class="pane" id="p-vars" style="display:none"><div id="vars"></div></div>
+  <div class="pane" id="p-maint" style="display:none"><div id="maint"></div></div>
+</div>
+<div id="info"><button id="infoX">Cerrar</button><div id="infoBody"></div></div>
+<div id="loading">Cargando maqueta 3D…</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+// ===================== LÓGICA PLC (ladder ejecutable + proceso) =====================
+// Los segmentos replican los bloques TK-PEAS [FB1], TK-ECUALIZADOR [FB2], TK-REACTOR-n [FB3..],
+// CLORADOR-n [FB14..] y AGUA-TRATADA [FB13] del proyecto en TIA Portal.
+var T = {};               // tabla de variables (tag -> valor)
+var ADDR = {};            // tag -> dirección TIA
+function rn(n, base) { return n === 1 ? base : base + "-R" + n; }
+
+(function initTags() {
+  var d = function (tag, addr, v) { T[tag] = v === undefined ? false : v; if (addr) ADDR[tag] = addr; };
+  // PEAS
+  d("START-PEAS", "%I0.0"); d("STOP-PEAS", "%I0.1"); d("P-Emergencia-PEAS", "%I0.2");
+  d("RELE-Termico-BB1-Peas", "%I0.3"); d("RELE-Termico-BB2-Peas", "%I0.4");
+  d("LSH-PEAS", "%I0.5"); d("LSL-PEAS", "%I0.6"); d("XV-PEAS-101", "%I0.7"); d("XV-PEAS-ECU-102", "%Q1.1");
+  d("BBA-Peas-01", "%Q0.0"); d("BBA-Peas-02", "%Q0.1"); d("POWER-ON", "%M0.2"); d("BOMBA-PEAS-RUN", "%M");
+  d("FIC-PEAS", "%IW100", 0); d("Nivel-PEAS", "", 12);
+  // ECUALIZADOR
+  d("START-Ecualizador", "%I1.1"); d("STOP-Ecualizador", "%I1.2"); d("P-Emergencia-ECU", "%I1.3");
+  d("RELE-Termico-BB1-AIR-Ecu", "%I1.4"); d("RELE-Termico-BB2-AIR-Ecu", "%I1.5");
+  d("Power-Ecu", "%M"); d("BBA-ECU-AIR-001", "%Q0.2"); d("BBA-ECU-AIR-002", "%Q0.3"); d("XV-ECU-AIR-202", "%Q1.2");
+  d("LSH-ECU", "%I2.2"); d("LSL-ECU", "%I2.3"); d("Habilita-BBA-ECU", "%M");
+  ["03", "04", "05", "06", "07"].forEach(function (k, i) { d("BBA-ECU-" + k, "%Q0." + (4 + i > 7 ? "" : 4 + i)); });
+  ADDR["BBA-ECU-07"] = "%Q1.0";
+  d("PIC-ECU-AIR", "%IW102", 0); d("Flujo-Ecu", "%IW98", 0); d("Fluido-1", "%MD312", 0); d("Nivel-ECU", "", 40);
+  // REACTORES
+  var lv0 = [35, 55, 25, 65, 45], cl0 = [0.4, 1.6, 0.2, 2.4, 0.8];
+  var stIn = [["I3.1", "I3.2", "I3.3", "I3.4", "I3.5"], ["I3.6", "I3.7", "I4.0", "I4.1", "I4.2"], ["I4.3", "I4.4", "I4.5", "I4.6", "I4.7"],
+    ["I5.0", "I5.1", "I5.2", "I5.3", "I5.4"], ["I5.5", "I5.6", "I5.7", "I6.0", "I6.1"]];
+  var lic = ["%IW68", "%IW74", "%IW78", "%IW82", "%IW86"], clo = ["%IW88", "%IW90", "%IW92", "%IW94", "%IW96"];
+  for (var n = 1; n <= 5; n++) {
+    var a = stIn[n - 1];
+    d("Start-Reactor-" + n, "%" + a[0]); d("STOP-Reactor-" + n, "%" + a[1]); d("P-Emergencia-Rec-" + n, "%" + a[2]);
+    d("RELE-Termico-BB1-AIR-Reactor" + n, "%" + a[3]); d("RELE-Termico-BB2-AIR-Reactor" + n, "%" + a[4]);
+    d("Power-R" + n, "%M"); d("XV-REACTOR-30" + n, "%Q1." + (2 + n));
+    d(rn(n, "BBA-REACTOR-AIR-01"), n === 1 ? "%Q2.0" : "Por asignar"); d(rn(n, "BBA-REACTOR-AIR-02"), n === 1 ? "%Q2.1" : "Por asignar");
+    d(rn(n, "BBA-Cloro-1"), n === 1 ? "%Q2.2" : "Por asignar"); d(rn(n, "BBA-Cloro-2"), n === 1 ? "%Q2.3" : "Por asignar");
+    d("Dosifica-R" + n, "%M");
+    d("Nivel-Reactor-" + n, lic[n - 1], lv0[n - 1]); d("Cloro-Reactor-0" + n, clo[n - 1], cl0[n - 1]);
+    d("PIC-Reactor-" + n, "", 0);
+    d("Habilita-xv-40" + n, "%M"); d("XV-TK-ACU-40" + n, n === 1 ? "%Q2.4" : "Por asignar");
+  }
+  // AGUA TRATADA
+  var lsh = ["%I6.7", "%I7.2", "%I7.5", "%I8.0", "%I8.3"], lsl = ["%I7.1", "%I7.3", "%I7.6", "%I8.1", "%I8.4"], acc0 = [55, 40, 70, 30, 50];
+  for (var m = 1; m <= 5; m++) { d("LSH-ACUMULADOR-" + m, lsh[m - 1]); d("LSL-ACUMULADOR-" + m, lsl[m - 1]); d("Nivel-ACU-" + m, "", acc0[m - 1]); }
+  d("Start-Aguatratada", "%I6.2"); d("Stop-Aguatratada", "%I6.3"); d("P-Emergencia-AguaTratada", "%I6.4");
+  d("RELE-Termico-BB1-Centrifuga", "%I6.5"); d("RELE-Termico-BB2-Centrifuga", "%I6.6");
+  d("Power-AT", "%M"); d("Habilita-BBA-Centrifuga", "%M");
+  d("AGUA-TRATADA-CENTRIFUGA-1", "%Q2.5"); d("AGUA-TRATADA-CENTRIFUGA-2", "%Q2.6"); d("XV-Cachimba", "%Q2.7");
+  d("Camion", "", 0); d("Camion-Presente", "simulación"); d("Camion-Lleno", "simulación");
+  // energía: TP-BT en la subestación y automático general del TG-PTAS (medidor aguas abajo)
+  d("Q-TPBT", "TP-BT 4x400 A"); d("Q-General-TG", "TG 4x400 A Ir 340 A"); d("Tension-OK", "");
+  d("V-TG", "", 0); d("I-TG", "", 0); d("P-TG", "", 0); d("kWh-TG", "", 18452.0);
+  d("LOCAL.HOUR", "DB9", 11); d("LOCAL.MINUTE", "DB9", 0);
+})();
+
+// ---------- elementos ladder ----------
+function NO(tag) { return { t: "NO", tag: tag }; }
+function NC(tag) { return { t: "NC", tag: tag }; }
+function CMP(tag, op, k) { return { t: "CMP", tag: tag, op: op, k: k }; }
+function OR() { return { t: "OR", br: Array.prototype.slice.call(arguments) }; }
+function marcha(start, stop, em, power) { return { title: "Marcha / parada del área (requiere tensión del TG-PTAS)", els: [OR([NO(start)], [NO(power)]), NC(stop), NC(em), NO("Tension-OK")], coil: [power] }; }
+
+var FBS = [];
+FBS.push({ id: "FB1", name: "TK-PEAS [FB1]", st: "peas", rungs: [
+  marcha("START-PEAS", "STOP-PEAS", "P-Emergencia-PEAS", "POWER-ON"),
+  { title: "Válvula de entrada: abierta mientras no se bombea, cierra con nivel alto", els: [NO("POWER-ON"), NC("BOMBA-PEAS-RUN"), NC("LSH-PEAS"), NC("LSH-ECU")], coil: ["XV-PEAS-101"] },
+  { title: "Habilita bombeo: parte con LSH, para con LSL", els: [NO("POWER-ON"), OR([NO("LSH-PEAS")], [NO("BOMBA-PEAS-RUN")]), NC("LSL-PEAS"), NC("LSH-ECU")], coil: ["BOMBA-PEAS-RUN"] },
+  { title: "Bomba 1 (alternancia por hora del PLC)", els: [NO("BOMBA-PEAS-RUN"), CMP("LOCAL.HOUR", "<", 12), NC("RELE-Termico-BB1-Peas")], coil: ["BBA-Peas-01"] },
+  { title: "Bomba 2 (alternancia por hora del PLC)", els: [NO("BOMBA-PEAS-RUN"), CMP("LOCAL.HOUR", ">=", 12), NC("RELE-Termico-BB2-Peas")], coil: ["BBA-Peas-02"] },
+  { title: "Válvula de paso PEAS a ecualizador", els: [OR([NO("BBA-Peas-01")], [NO("BBA-Peas-02")]), NC("LSH-ECU")], coil: ["XV-PEAS-ECU-102"] },
+] });
+FBS.push({ id: "FB2", name: "TK-ECUALIZADOR [FB2]", st: "ecu", rungs: [
+  marcha("START-Ecualizador", "STOP-Ecualizador", "P-Emergencia-ECU", "Power-Ecu"),
+  { title: "Soplador 1 (alternancia por hora)", els: [NO("Power-Ecu"), CMP("LOCAL.HOUR", "<", 12), NC("RELE-Termico-BB1-AIR-Ecu")], coil: ["BBA-ECU-AIR-001"] },
+  { title: "Soplador 2 (alternancia por hora)", els: [NO("Power-Ecu"), CMP("LOCAL.HOUR", ">=", 12), NC("RELE-Termico-BB2-AIR-Ecu")], coil: ["BBA-ECU-AIR-002"] },
+  { title: "Válvula de aire", els: [OR([NO("BBA-ECU-AIR-001")], [NO("BBA-ECU-AIR-002")])], coil: ["XV-ECU-AIR-202"] },
+  { title: "Habilita bombas sumergibles: parte con LSH, para con LSL", els: [NO("Power-Ecu"), OR([NO("LSH-ECU")], [NO("Habilita-BBA-ECU")]), NC("LSL-ECU")], coil: ["Habilita-BBA-ECU"] },
+  { title: "Bombas sumergibles 3 a 7 a la línea de reactores", els: [NO("Habilita-BBA-ECU")], coil: ["BBA-ECU-03", "BBA-ECU-04", "BBA-ECU-05", "BBA-ECU-06", "BBA-ECU-07"] },
+] });
+for (var n = 1; n <= 5; n++) {
+  FBS.push({ id: "FB-R" + n, name: "TK-REACTOR-" + n + " [FB" + (2 + n) + "]", st: "rea", n: n, rungs: [
+    marcha("Start-Reactor-" + n, "STOP-Reactor-" + n, "P-Emergencia-Rec-" + n, "Power-R" + n),
+    { title: "Válvula de entrada: línea con fluido y nivel del reactor bajo 90 %", els: [NO("Power-R" + n), NO("Habilita-BBA-ECU"), CMP("Fluido-1", ">=", 80),
+      OR([CMP("Nivel-Reactor-" + n, "<=", 80)], [NO("XV-REACTOR-30" + n), CMP("Nivel-Reactor-" + n, "<=", 90)])], coil: ["XV-REACTOR-30" + n] },
+    { title: "Soplador 1 del reactor", els: [NO("Power-R" + n), CMP("Nivel-Reactor-" + n, ">=", 20), CMP("LOCAL.HOUR", "<", 12), NC("RELE-Termico-BB1-AIR-Reactor" + n)], coil: [rn(n, "BBA-REACTOR-AIR-01")] },
+    { title: "Soplador 2 del reactor", els: [NO("Power-R" + n), CMP("Nivel-Reactor-" + n, ">=", 20), CMP("LOCAL.HOUR", ">=", 12), NC("RELE-Termico-BB2-AIR-Reactor" + n)], coil: [rn(n, "BBA-REACTOR-AIR-02")] },
+  ] });
+  FBS.push({ id: "FB-C" + n, name: "CLORADOR-" + n + " [FB" + (13 + n) + "]", st: "clo", n: n, rungs: [
+    { title: "Dosificación: parte bajo 2,0 mg/L y llega hasta 6,0 mg/L", els: [NO("Power-R" + n), CMP("Nivel-Reactor-" + n, ">=", 20),
+      OR([CMP("Cloro-Reactor-0" + n, "<=", 2)], [NO("Dosifica-R" + n), CMP("Cloro-Reactor-0" + n, "<=", 6)])], coil: ["Dosifica-R" + n] },
+    { title: "Bomba dosificadora 1 (alternancia por hora)", els: [NO("Dosifica-R" + n), CMP("LOCAL.HOUR", "<", 12)], coil: [rn(n, "BBA-Cloro-1")] },
+    { title: "Bomba dosificadora 2 (alternancia por hora)", els: [NO("Dosifica-R" + n), CMP("LOCAL.HOUR", ">=", 12)], coil: [rn(n, "BBA-Cloro-2")] },
+    { title: "Habilita paso al acumulador: cloro sobre 1,0 mg/L y acumulador sin nivel alto", els: [NO("Power-R" + n), CMP("Cloro-Reactor-0" + n, ">=", 1), OR([CMP("Nivel-Reactor-" + n, ">=", 50)], [NO("XV-TK-ACU-40" + n), CMP("Nivel-Reactor-" + n, ">=", 35)]), NC("LSH-ACUMULADOR-" + n)], coil: ["Habilita-xv-40" + n] },
+    { title: "Válvula de entrada al tanque acumulador", els: [NO("Habilita-xv-40" + n)], coil: ["XV-TK-ACU-40" + n] },
+  ] });
 }
-// PEAS: estanque horizontal semienterrado
-cyl(1.6, 6, mat.white, 21, 1.1, 11, "z"); for (const dz of [-2.4, -.8, .8, 2.4]) { const t = new THREE.Mesh(new THREE.TorusGeometry(1.62, .07, 8, 30), mat.white); t.position.set(21, 1.1, 11 + dz); P.add(t); }
-cyl(.6, .25, mat.black, 21, 2.7, 10, "y"); box(4.2, .8, 7, mat.conc, 21, .1, 11);
-motor("BBA-001", "Bomba sumergible PEAS 1", "peas", 20.2, 2.7, 12.2, "sub"); motor("BBA-002", "Bomba sumergible PEAS 2 (alterna)", "peas", 21.8, 2.7, 12.2, "sub", true);
-box(1.2, 1.6, .5, mat.gray, 24.5, .8, 8); label("PEAS", 21, 5.2, 11);
-// Ecualizador
-const ex = 16, ez = -3; box(5.4, 3, .3, mat.conc, ex, 1.5, ez - 5); box(5.4, 3, .3, mat.conc, ex, 1.5, ez + 5); box(.3, 3, 10, mat.conc, ex - 2.6, 1.5, ez); box(.3, 3, 10, mat.conc, ex + 2.6, 1.5, ez); box(5.4, .2, 10, mat.concIn, ex, .1, ez);
-const ecuW = box(4.9, .1, 9.6, mat.brown, ex, 2.2, ez); box(.12, .12, 10, mat.rail, ex - 2.8, 3.5, ez); box(.12, .12, 10, mat.rail, ex + 2.8, 3.5, ez);
-pipe([[ex + 1.8, 3.3, ez - 4.5], [ex + 1.8, 3.3, ez + 4.5]], .1, mat.blue);
-motor("SO-601", "Soplador ecualizador 1", "ecu", 19.8, .2, -7.2, "blower"); motor("SO-602", "Soplador ecualizador 2", "ecu", 19.8, .2, -5.6, "blower");
-RZ.forEach((z, i) => motor("BBA-00" + (3 + i), "Bomba sumergible ecualizador → reactor " + (i + 1), "ecu", ex - 1.7, 3.1, ez - 3.6 + i * 1.8, "sub"));
-box(1.2, 1.6, .5, mat.gray, 19.8, .8, -3); label("ECUALIZADOR", ex, 6, ez);
-// Reactores
-const RW = []; const zones = [[0, .42, "brown"], [.42, .62, "brown"], [.62, .82, "green"], [.82, 1, "green"]];
-RZ.forEach((z, i) => {
-  const L = 18, W = 3.8, H = 3, x0 = -9;
-  box(L, H, .25, mat.conc, 0, H / 2, z - W / 2); box(L, H, .25, mat.conc, 0, H / 2, z + W / 2); box(.25, H, W, mat.conc, -L / 2, H / 2, z); box(.25, H, W, mat.conc, L / 2, H / 2, z); box(L, .2, W, mat.concIn, 0, .1, z);
-  zones.forEach(([a, b, c], k) => { const w = (b - a) * L; const o = box(w - .25, .08, W - .3, mat[c], x0 + (a + b) / 2 * L, 2.3, z); RW.push({ o, i, k, base: 2.3 }); if (k) box(.2, H, W, mat.conc, x0 + a * L, H / 2, z); });
-  box(L, .1, .1, mat.rail, 0, 3.6, z - W / 2 - .1); box(L, .1, .1, mat.rail, 0, 3.6, z + W / 2 + .1);
-  pipe([[-8, 3.25, z + 1.2], [8.5, 3.25, z + 1.2]], .09, mat.blue);
-  motor("R" + (i + 1) + "_SO_A", "Soplador A reactor " + (i + 1), "rea", 10.2, .2, z - 1.1, "blower"); motor("R" + (i + 1) + "_SO_B", "Soplador B reactor " + (i + 1), "rea", 10.2, .2, z + .3, "blower", true);
-  motor("R" + (i + 1) + "_BD_A", "Dosificadora cloro reactor " + (i + 1), "rea", 6.5, 3.1, z - 1.5, "dos"); motor("R" + (i + 1) + "_EX", "Extractor reactor " + (i + 1), "rea", 9.9, 2.2, z + 1.4, "pump");
-  box(.6, 1.4, .4, mat.gray, 11.6, .7, z + 1.4);
+FBS.push({ id: "FB13", name: "AGUA-TRATADA [FB13]", st: "at", rungs: [
+  marcha("Start-Aguatratada", "Stop-Aguatratada", "P-Emergencia-AguaTratada", "Power-AT"),
+  { title: "Habilita centrífugas: parte con LSH, para con LSL", els: [NO("Power-AT"), OR([NO("LSH-ACUMULADOR-1")], [NO("Habilita-BBA-Centrifuga")]), NC("LSL-ACUMULADOR-1")], coil: ["Habilita-BBA-Centrifuga"] },
+  { title: "Bomba centrífuga 1: hay camión en la cachimba y no está lleno", els: [NO("Habilita-BBA-Centrifuga"), CMP("LOCAL.HOUR", "<", 12), NC("RELE-Termico-BB1-Centrifuga"), NO("Camion-Presente"), NC("Camion-Lleno")], coil: ["AGUA-TRATADA-CENTRIFUGA-1"] },
+  { title: "Bomba centrífuga 2: hay camión en la cachimba y no está lleno", els: [NO("Habilita-BBA-Centrifuga"), CMP("LOCAL.HOUR", ">=", 12), NC("RELE-Termico-BB2-Centrifuga"), NO("Camion-Presente"), NC("Camion-Lleno")], coil: ["AGUA-TRATADA-CENTRIFUGA-2"] },
+  { title: "Válvula a la cachimba", els: [OR([NO("AGUA-TRATADA-CENTRIFUGA-1")], [NO("AGUA-TRATADA-CENTRIFUGA-2")])], coil: ["XV-Cachimba"] },
+] });
+
+// ---------- evaluación (un ciclo de scan) ----------
+function cmp(v, op, k) { return op === "<" ? v < k : op === "<=" ? v <= k : op === ">=" ? v >= k : op === ">" ? v > k : v === k; }
+function evalSeries(els, pin) {
+  var p = pin;
+  for (var i = 0; i < els.length; i++) {
+    var e = els[i];
+    if (e.t === "OR") {
+      var any = false;
+      for (var b = 0; b < e.br.length; b++) { if (evalSeries(e.br[b], p)) any = true; }
+      e._in = p; p = any; e._out = p;
+    } else {
+      var c = e.t === "NO" ? !!T[e.tag] : e.t === "NC" ? !T[e.tag] : cmp(T[e.tag], e.op, e.k);
+      e._on = c; e._in = p; p = p && c; e._out = p;
+    }
+  }
+  return p;
+}
+function scan() {
+  for (var f = 0; f < FBS.length; f++) {
+    var fb = FBS[f];
+    for (var r = 0; r < fb.rungs.length; r++) {
+      var g = fb.rungs[r]; var out = evalSeries(g.els, true); g._out = out;
+      for (var c = 0; c < g.coil.length; c++) T[g.coil[c]] = out;
+    }
+  }
+}
+
+// ---------- proceso (sensores e hidráulica simplificada) ----------
+var SPEED = 1;
+function clamp(v, a, b) { return v < a ? a : v > b ? b : v; }
+// sensor con histéresis: se activa en "on" y se desactiva en "off"
+function hys(state, v, on, off) { return state ? v > off : v >= on; }
+function process(dt) {
+  // reloj del PLC: 1 s real = 6 min
+  var mins = T["LOCAL.HOUR"] * 60 + T["LOCAL.MINUTE"] + dt * 6;
+  mins = mins % 1440; T["LOCAL.HOUR"] = Math.floor(mins / 60); T["LOCAL.MINUTE"] = mins - T["LOCAL.HOUR"] * 60;
+  var pumpP = (T["BBA-Peas-01"] || T["BBA-Peas-02"]) && T["XV-PEAS-ECU-102"];
+  T["Nivel-PEAS"] = clamp(T["Nivel-PEAS"] + ((T["XV-PEAS-101"] ? 3.0 : 0) - (pumpP ? 6.0 : 0)) * dt, 0, 100);
+  T["FIC-PEAS"] = pumpP ? 42 + Math.sin(Date.now() / 700) * 1.5 : 0;
+  var ecuRun = T["Habilita-BBA-ECU"];
+  var nOpen = 0; for (var n = 1; n <= 5; n++) if (T["XV-REACTOR-30" + n] && ecuRun) nOpen++;
+  T["Nivel-ECU"] = clamp(T["Nivel-ECU"] + ((pumpP ? 2.2 : 0) - nOpen * 0.55) * dt, 0, 100);
+  T["Flujo-Ecu"] = ecuRun ? 85 + Math.sin(Date.now() / 900) * 3 : 0;
+  T["Fluido-1"] = ecuRun ? Math.round(T["Flujo-Ecu"] / 95 * 1000) / 10 : 0;
+  T["PIC-ECU-AIR"] = T["XV-ECU-AIR-202"] ? 0.48 : 0;
+  var anyCen = T["AGUA-TRATADA-CENTRIFUGA-1"] || T["AGUA-TRATADA-CENTRIFUGA-2"];
+  for (var k = 1; k <= 5; k++) {
+    var inflow = T["XV-REACTOR-30" + k] && ecuRun, out = T["XV-TK-ACU-40" + k];
+    var L = T["Nivel-Reactor-" + k] + ((inflow ? 2.4 : 0) - (out ? 1.6 : 0)) * dt;
+    T["Nivel-Reactor-" + k] = clamp(L, 0, 100);
+    var dose = T[rn(k, "BBA-Cloro-1")] || T[rn(k, "BBA-Cloro-2")];
+    var cl = T["Cloro-Reactor-0" + k];
+    cl += ((dose ? 0.9 : 0) - (0.03 + (inflow ? 0.09 : 0)) * cl) * dt;
+    T["Cloro-Reactor-0" + k] = Math.round(clamp(cl, 0, 10) * 100) / 100;
+    T["PIC-Reactor-" + k] = (T[rn(k, "BBA-REACTOR-AIR-01")] || T[rn(k, "BBA-REACTOR-AIR-02")]) ? 0.42 : 0;
+    var A = T["Nivel-ACU-" + k] + ((out ? 1.8 : 0) - (anyCen && T["XV-Cachimba"] ? 0.9 : 0)) * dt;
+    T["Nivel-ACU-" + k] = clamp(A, 0, 100);
+    T["LSH-ACUMULADOR-" + k] = hys(T["LSH-ACUMULADOR-" + k], T["Nivel-ACU-" + k], 90, 84);
+    T["LSL-ACUMULADOR-" + k] = !hys(!T["LSL-ACUMULADOR-" + k], T["Nivel-ACU-" + k], 21, 15);
+  }
+  T["LSH-PEAS"] = hys(T["LSH-PEAS"], T["Nivel-PEAS"], 85, 80); T["LSL-PEAS"] = !hys(!T["LSL-PEAS"], T["Nivel-PEAS"], 20, 15);
+  T["LSH-ECU"] = hys(T["LSH-ECU"], T["Nivel-ECU"], 85, 79); T["LSL-ECU"] = !hys(!T["LSL-ECU"], T["Nivel-ECU"], 25, 20);
+  if (T["XV-Cachimba"] && anyCen && T["Camion-Presente"]) T["Camion"] = Math.min(100, T["Camion"] + 3.5 * dt);
+  T["Camion-Lleno"] = T["Camion-Presente"] && T["Camion"] >= 100;
+  // energía y medidor (el equipo de medida está aguas abajo del automático general)
+  T["Tension-OK"] = T["Q-TPBT"] && T["Q-General-TG"];
+  var P = 0;
+  if (T["Tension-OK"]) {
+    P = 1.2;
+    if (T["BBA-Peas-01"] || T["BBA-Peas-02"]) P += 7.5;
+    if (T["BBA-ECU-AIR-001"] || T["BBA-ECU-AIR-002"]) P += 15;
+    if (T["Habilita-BBA-ECU"]) P += 5 * 4.4;
+    for (var j = 1; j <= 5; j++) { if (T[rn(j, "BBA-REACTOR-AIR-01")] || T[rn(j, "BBA-REACTOR-AIR-02")]) P += 11; if (T["Dosifica-R" + j]) P += 0.4; }
+    if (anyCen) P += 11;
+  }
+  T["V-TG"] = T["Tension-OK"] ? 400 + Math.sin(Date.now() / 1300) * 1.5 : 0;
+  T["P-TG"] = P; T["I-TG"] = T["Tension-OK"] ? P * 1000 / (Math.sqrt(3) * 400 * 0.9) : 0;
+  if (T["Tension-OK"]) T["kWh-TG"] += P * dt * 0.1;
+}
+var _pulses = [];
+function pulse(tags, ms) { tags.forEach(function (t) { T[t] = true; }); _pulses.push({ tags: tags, left: (ms || 400) / 1000 }); }
+function step(realDt) {
+  var dt = Math.min(realDt, 0.1) * SPEED;
+  for (var i = _pulses.length - 1; i >= 0; i--) {
+    _pulses[i].left -= realDt;
+    if (_pulses[i].left <= 0) { _pulses[i].tags.forEach(function (t) { T[t] = false; }); _pulses.splice(i, 1); }
+  }
+  process(dt); scan();
+}
+var STARTS = ["START-PEAS", "START-Ecualizador", "Start-Reactor-1", "Start-Reactor-2", "Start-Reactor-3", "Start-Reactor-4", "Start-Reactor-5", "Start-Aguatratada"];
+var STOPS = ["STOP-PEAS", "STOP-Ecualizador", "STOP-Reactor-1", "STOP-Reactor-2", "STOP-Reactor-3", "STOP-Reactor-4", "STOP-Reactor-5", "Stop-Aguatratada"];
+var EMERG = ["P-Emergencia-PEAS", "P-Emergencia-ECU", "P-Emergencia-Rec-1", "P-Emergencia-Rec-2", "P-Emergencia-Rec-3", "P-Emergencia-Rec-4", "P-Emergencia-Rec-5", "P-Emergencia-AguaTratada"];
+if (typeof module !== "undefined") module.exports = { T: T, step: step, pulse: pulse, STARTS: STARTS, STOPS: STOPS, FBS: FBS, setSpeed: function (s) { SPEED = s; } };
+// Plan de mantenimiento preventivo (propuesto) por tablero y accesorio
+var MAINT = {
+  general: [
+    "Antes de intervenir: bloqueo y etiquetado (LOTO) del alimentador, verificación de ausencia de tensión y uso de EPP para riesgo eléctrico.",
+    "En la subestación, todo trabajo en media tensión se coordina con la empresa distribuidora y lo ejecuta personal autorizado SEC.",
+    "El estanque PEAS enterrado es espacio confinado: trabajar solo con permiso, medición de gases (H2S, O2, LEL) antes y durante el trabajo, ventilación forzada y vigía en superficie.",
+    "Las frecuencias son referenciales; prevalecen las indicadas por cada fabricante."
+  ],
+  boards: [
+    { id: "peas", name: "T.D.F.yC PEAS", contiene: "IO-Device-1 (ET 200SP), HMI-2 KTP700, partidores de BBA-Peas-01/02, botonera PEAS" },
+    { id: "ecu", name: "T.D.F.yC Ecualización", contiene: "IO-Device-2 (ET 200SP), HMI-3 KTP700, partidores de sopladores y de 5 bombas sumergibles, botonera ECU" },
+    { id: "rea", name: "T.D.F.yC Reactores", contiene: "IO-Device-3 (ET 200SP), HMI-4 KTP700, partidores de sopladores y bombas dosificadoras de los 5 reactores, botoneras" },
+    { id: "at", name: "T.D.F.yC Agua Tratada", contiene: "IO-Device-4 (ET 200SP), HMI-5 KTP700, partidores de bombas centrífugas, botonera agua tratada" },
+    { id: "plc", name: "Tablero de control PLC-1", contiene: "CPU 1214C DC/DC/DC, fuente 24 VCC, red PROFINET" },
+    { id: "tdg", name: "T.D.G. (HMI-1 TP1200)", contiene: "HMI principal TP1200 Comfort, protecciones generales" },
+    { id: "tg", name: "TG-PTAS (Tablero General)", contiene: "Interruptor general 4x400 A Ir 340 A 25 kA con bobina de disparo, equipo de medida, parada de emergencia, barra tetrapolar 400 A y 8 salidas a los T.D.F.yC" },
+    { id: "tpbt", name: "Subestación aérea 300 kVA y TP-BT", contiene: "Transformador 300 kVA 23/0,4 kV Dyn11 en biposte, cut-out 27 kV con fusible K 12 A, pararrayos, TP-BT 800x600x300 IP65 con interruptor 4x400 A, malla de tierra 10x10 m" }
+  ],
+  boardCommon: [
+    ["Envolvente", "Limpieza interior y exterior; revisar sellos, burletes, bisagras y cierre de puertas", "Mensual"],
+    ["Ventilación", "Limpiar o cambiar filtros de ventilación; verificar ventilador", "Mensual"],
+    ["Conexiones", "Reapriete de bornes de fuerza y control según torque del fabricante", "Semestral"],
+    ["Conexiones", "Termografía de barras, interruptores, contactores y bornes con carga", "Semestral"],
+    ["Interruptores automáticos", "Inspección visual, operación manual de apertura y cierre", "Semestral"],
+    ["Protección diferencial", "Prueba con botón de test", "Mensual"],
+    ["Contactores", "Revisar desgaste de contactos y ruido de bobina; verificar enclavamientos", "Trimestral"],
+    ["Relés térmicos", "Verificar ajuste igual a la corriente nominal del motor y probar disparo (señal RELE-Termico al PLC)", "Semestral"],
+    ["Relés de interfaz 24 VCC", "Revisar LED, zócalo y fijación; cambiar los que fallen", "Trimestral"],
+    ["Fuente 24 VCC", "Medir tensión de salida (24 VCC ± 5 %) y revisar temperatura", "Trimestral"],
+    ["Pulsadores y paradas de emergencia", "Prueba funcional de START, STOP y P-Emergencia desde terreno; verificar que la parada detenga el área", "Mensual"],
+    ["Luces piloto", "Prueba de lámparas", "Mensual"],
+    ["Puesta a tierra", "Continuidad de la tierra de protección del tablero y puerta", "Anual"],
+    ["Rotulación", "Verificar placas de identificación, diagramas unilineales y señalética de riesgo eléctrico", "Anual"]
+  ],
+  boardSpecific: {
+    peas: [["ET 200SP (IO-Device-1)", "Revisar LED de diagnóstico y búfer de diagnóstico en TIA Portal; ajuste de conectores", "Trimestral"],
+           ["HMI-2 KTP700", "Limpieza de pantalla, prueba táctil y respaldo del proyecto", "Trimestral"]],
+    ecu: [["ET 200SP (IO-Device-2)", "Revisar LED de diagnóstico y búfer de diagnóstico en TIA Portal; ajuste de conectores", "Trimestral"],
+          ["HMI-3 KTP700", "Limpieza de pantalla, prueba táctil y respaldo del proyecto", "Trimestral"]],
+    rea: [["ET 200SP (IO-Device-3)", "Revisar LED de diagnóstico y búfer de diagnóstico en TIA Portal; ajuste de conectores", "Trimestral"],
+          ["HMI-4 KTP700", "Limpieza de pantalla, prueba táctil y respaldo del proyecto", "Trimestral"]],
+    at: [["ET 200SP (IO-Device-4)", "Revisar LED de diagnóstico y búfer de diagnóstico en TIA Portal; ajuste de conectores", "Trimestral"],
+         ["HMI-5 KTP700", "Limpieza de pantalla, prueba táctil y respaldo del proyecto", "Trimestral"]],
+    plc: [["CPU 1214C", "Revisar estado RUN/STOP/ERROR y búfer de diagnóstico", "Mensual"],
+          ["CPU 1214C", "Respaldo del programa y comparación online/offline en TIA Portal", "Trimestral"],
+          ["CPU 1214C", "Verificar hora del PLC (DB-RELOJ), usada en las alternancias", "Mensual"],
+          ["Red PROFINET", "Revisar cables IE FC, conectores RJ45 y estado de los dispositivos en la vista de redes", "Semestral"]],
+    tg: [["Interruptor general 4x400 A", "Prueba de la bobina de disparo con la parada de emergencia y verificación del ajuste Ir 340 A", "Semestral"],
+         ["Equipo de medida", "Verificar lectura de tensión, corriente y energía contra instrumento patrón", "Anual"],
+         ["Salidas a T.D.F.yC", "Termografía de las 8 salidas y medición de corriente por fase", "Semestral"],
+         ["Alimentador soterrado", "Inspeccionar las 3 cámaras de registro: agua, sellos de ductos y estado de cables", "Semestral"],
+         ["Aislación", "Medir aislación del alimentador y subalimentadores con megóhmetro", "Anual"]],
+    tpbt: [["Transformador", "Inspección visual: fugas de aceite, nivel, bornes y corrosión (desde nivel de suelo)", "Mensual"],
+           ["Transformador", "Termografía de bornes MT y BT con carga", "Semestral"],
+           ["Transformador", "Análisis de aceite (rigidez dieléctrica y humedad)", "Anual"],
+           ["Cut-out y pararrayos", "Inspección de fusibles K 12 A, aisladores y pararrayos (con desenergización coordinada con la distribuidora)", "Anual"],
+           ["Estructura biposte", "Revisar postes, crucetas, ferretería y plataforma", "Anual"],
+           ["TP-BT", "Reapriete, termografía y prueba del interruptor 4x400 A", "Semestral"],
+           ["Malla de tierra", "Medir resistencia de puesta a tierra (≤ 5 Ω, RIC N°06) en la cámara de inspección", "Anual"],
+           ["Cierre perimetral", "Revisar cierre 8x8 m, candado y señalética de alta tensión", "Trimestral"]],
+    tdg: [["HMI-1 TP1200 Comfort", "Limpieza de pantalla, revisión de alarmas y tendencias, respaldo del proyecto", "Trimestral"],
+          ["Protecciones generales", "Inspección y termografía de interruptores generales", "Semestral"]]
+  },
+  accessories: [
+    { id: "bomba", name: "Bombas sumergibles (PEAS y ecualizador)", tags: "BBA-Peas-01/02, BBA-ECU-03 a 07", items: [
+      ["Medir corriente por fase y comparar con placa", "Mensual"], ["Medir aislación del motor (megóhmetro)", "Semestral"],
+      ["Izar la bomba, limpiar impulsor y revisar sellos y cable", "Semestral"], ["Revisar cadena o cable de izaje y guías", "Anual"]] },
+    { id: "soplador", name: "Sopladores (ecualizador y reactores)", tags: "BBA-ECU-AIR-001/002, BBA-REACTOR-AIR-01/02", items: [
+      ["Limpiar o cambiar filtro de aspiración", "Mensual"], ["Medir vibración y temperatura de rodamientos", "Mensual"],
+      ["Revisar correas o acoplamiento y lubricar rodamientos", "Trimestral"], ["Probar válvula de alivio y silenciadores", "Semestral"]] },
+    { id: "centrifuga", name: "Bombas centrífugas de agua tratada", tags: "AGUA-TRATADA-CENTRIFUGA-1/2", items: [
+      ["Revisar fugas en sello mecánico", "Mensual"], ["Medir corriente y vibración", "Mensual"],
+      ["Lubricar rodamientos según fabricante", "Trimestral"], ["Verificar alineamiento motor-bomba", "Semestral"]] },
+    { id: "dosificadora", name: "Bombas dosificadoras de cloro", tags: "BBA-Cloro-1/2 de cada reactor", items: [
+      ["Limpiar válvulas antirretorno, cabezal y línea de inyección", "Mensual"], ["Calibrar caudal de dosificación", "Trimestral"],
+      ["Cambiar diafragma y juego de válvulas", "Anual"], ["Revisar estanque de cloro y su contención", "Mensual"]] },
+    { id: "valvula", name: "Válvulas eléctricas", tags: "XV-PEAS-101, XV-PEAS-ECU-102, XV-ECU-AIR-202, XV-REACTOR-301 a 305, XV-TK-ACU-401 a 405, XV-Cachimba", items: [
+      ["Prueba de apertura y cierre desde HMI y verificación de estado en el PLC", "Mensual"],
+      ["Revisar actuador, finales de carrera y prensaestopas", "Semestral"], ["Prueba de hermeticidad", "Anual"]] },
+    { id: "sensor", name: "Sensores de nivel por electrodo", tags: "LSH/LSL-PEAS, LSH/LSL-ECU, LSH/LSL-ACUMULADOR-1 a 5", items: [
+      ["Limpiar electrodos (grasa y sólidos)", "Mensual"], ["Prueba de conmutación y señal en el PLC", "Trimestral"]] },
+    { id: "transmisor", name: "Transmisores (caudal, presión, nivel ultrasónico, cloro)", tags: "FIC-PEAS, Flujo-Ecu, PIC-ECU-AIR, PIC-Reactor-n, LIC-Reactor-n, CLORO-RECn", items: [
+      ["Sensor de cloro: verificar con medición DPD manual", "Semanal"], ["Sensor de cloro: cambiar membrana y electrolito", "Semestral"],
+      ["Ultrasónicos: limpiar transductor y comparar con regla", "Trimestral"], ["Presión: verificar cero y span", "Semestral"],
+      ["Caudalímetros: limpiar electrodos y verificar", "Anual"], ["Verificar escalamiento (FB19) contra la lectura en terreno", "Anual"]] },
+    { id: "estructura", name: "Pozo PEAS, estanques y difusores", tags: "Pozo PEAS, ecualizador, reactores, acumuladores", items: [
+      ["Pozo PEAS: retirar sólidos y grasas", "Mensual"], ["Revisar escalera, baranda y tapa del pozo", "Trimestral"],
+      ["Inspeccionar y limpiar difusores de aire", "Anual"], ["Inspección estructural de estanques", "Anual"]] }
+  ]
+};
+if (typeof module !== "undefined") module.exports = MAINT;
+// ===================== INTERFAZ =====================
+var UI = (function () {
+  var $ = function (s) { return document.querySelector(s); };
+  var state = { tab: "ladder", fb: "FB1", rx: 1, follow: true, tour: false, tourT: 0, emerg: false, labels: true, panel: true };
+  var FBMAP = {}; FBS.forEach(function (f) { FBMAP[f.id] = f; });
+  function esc(s) { return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
+  function f1(v, d) { return (typeof v === "number" ? v.toFixed(d === undefined ? 1 : d) : (v ? "1" : "0")).replace(".", ","); }
+  function hhmm() { var h = T["LOCAL.HOUR"], m = Math.floor(T["LOCAL.MINUTE"]); return (h < 10 ? "0" : "") + h + ":" + (m < 10 ? "0" : "") + m; }
+
+  // ---------- ladder SVG ----------
+  var EW = 86, RHT = 74;
+  function size(els) { var w = 0, h = RHT; els.forEach(function (e) { var s = esize(e); w += s.w; h = Math.max(h, s.h); }); return { w: w, h: h }; }
+  function esize(e) { if (e.t !== "OR") return { w: EW, h: RHT }; var w = 0, h = 0; e.br.forEach(function (b) { var s = size(b); w = Math.max(w, s.w); h += s.h; }); return { w: w, h: h }; }
+  var G = "#16a34a", B = "#5b7fb0";
+  function wire(o, x1, y1, x2, y2, on) { o.push('<line x1="' + x1 + '" y1="' + y1 + '" x2="' + x2 + '" y2="' + y2 + '" stroke="' + (on ? G : B) + '" stroke-width="' + (on ? 3 : 1.6) + '"' + (on ? "" : ' stroke-dasharray="5 3"') + "/>"); }
+  function lines(tag) { var p = tag.split("-"), L = [""], i; for (i = 0; i < p.length; i++) { var add = (L[L.length - 1] ? "-" : "") + p[i]; if ((L[L.length - 1] + add).length > 12 && L[L.length - 1]) L.push(p[i]); else L[L.length - 1] += add; } return L.slice(0, 3); }
+  function txt(o, x, y, s, size, color, anchor, bold) { o.push('<text x="' + x + '" y="' + y + '" font-size="' + (size || 10) + '" fill="' + (color || "#0c2f5c") + '" text-anchor="' + (anchor || "middle") + '"' + (bold ? ' font-weight="bold"' : "") + ">" + esc(s) + "</text>"); }
+  function drawSeries(o, els, x, y) {
+    els.forEach(function (e) {
+      var s = esize(e);
+      if (e.t === "OR") {
+        var by = y, last = y;
+        e.br.forEach(function (b) {
+          var bs = size(b); drawSeries(o, b, x, by);
+          var lo = b[b.length - 1]._out; if (bs.w < s.w) wire(o, x + bs.w, by, x + s.w, by, lo);
+          last = by; by += bs.h;
+        });
+        wire(o, x, y, x, last, e._in); wire(o, x + s.w, y, x + s.w, last, e._out);
+      } else {
+        var cx = x + EW / 2, c = e._on ? G : "#64748b";
+        wire(o, x, y, cx - 9, y, e._in); wire(o, cx + 9, y, x + EW, y, e._out);
+        o.push('<g class="el" data-tag="' + esc(e.tag) + '" style="cursor:pointer">');
+        o.push('<rect x="' + (x + 2) + '" y="' + (y - 46) + '" width="' + (EW - 4) + '" height="' + (RHT - 6) + '" fill="transparent"/>');
+        if (e.t === "CMP") {
+          o.push('<rect x="' + (cx - 26) + '" y="' + (y - 14) + '" width="52" height="28" rx="3" fill="' + (e._on ? "#dcfce7" : "#f1f5f9") + '" stroke="' + c + '" stroke-width="1.6"/>');
+          txt(o, cx, y + 4, e.op + " " + f1(e.k, 1), 11, c, "middle", true);
+          txt(o, cx, y + 25, "act. " + f1(T[e.tag], e.tag === "LOCAL.HOUR" ? 0 : 1), 9.5, e._on ? G : "#64748b");
+        } else {
+          o.push('<line x1="' + (cx - 9) + '" y1="' + (y - 12) + '" x2="' + (cx - 9) + '" y2="' + (y + 12) + '" stroke="' + c + '" stroke-width="2.4"/>');
+          o.push('<line x1="' + (cx + 9) + '" y1="' + (y - 12) + '" x2="' + (cx + 9) + '" y2="' + (y + 12) + '" stroke="' + c + '" stroke-width="2.4"/>');
+          if (e.t === "NC") o.push('<line x1="' + (cx - 12) + '" y1="' + (y + 12) + '" x2="' + (cx + 12) + '" y2="' + (y - 12) + '" stroke="' + c + '" stroke-width="2"/>');
+          if (e._on) o.push('<rect x="' + (cx - 7) + '" y="' + (y - 10) + '" width="14" height="20" fill="' + G + '" opacity="0.25"/>');
+          txt(o, cx, y + 26, ADDR[e.tag] === "%M" ? "marca" : (ADDR[e.tag] || ""), 9, "#64748b");
+        }
+        var L = lines(e.tag); L.forEach(function (l, i) { txt(o, cx, y - 20 - (L.length - 1 - i) * 11, l, 10, "#0c2f5c"); });
+        o.push("</g>");
+      }
+      x += s.w;
+    });
+  }
+  function drawFB(fb) {
+    var out = [];
+    fb.rungs.forEach(function (r, i) {
+      var s = size(r.els), W = s.w + 190, H = s.h + 30, o = [];
+      o.push('<svg width="' + W + '" height="' + H + '" viewBox="0 0 ' + W + " " + H + '" xmlns="http://www.w3.org/2000/svg" font-family="Arial">');
+      var y = 58;
+      o.push('<line x1="8" y1="6" x2="8" y2="' + (H - 4) + '" stroke="' + G + '" stroke-width="3"/>');
+      wire(o, 8, y, 16, y, true);
+      drawSeries(o, r.els, 16, y);
+      var xe = 16 + s.w, xc = W - 90;
+      wire(o, xe, y, xc - 13, y, r._out);
+      var cc = r._out ? G : "#64748b";
+      o.push('<g class="el" data-tag="' + esc(r.coil[0]) + '" style="cursor:pointer">');
+      o.push('<path d="M' + (xc - 6) + " " + (y - 13) + " Q" + (xc - 15) + " " + y + " " + (xc - 6) + " " + (y + 13) + '" stroke="' + cc + '" stroke-width="2.4" fill="none"/>');
+      o.push('<path d="M' + (xc + 6) + " " + (y - 13) + " Q" + (xc + 15) + " " + y + " " + (xc + 6) + " " + (y + 13) + '" stroke="' + cc + '" stroke-width="2.4" fill="none"/>');
+      if (r._out) o.push('<circle cx="' + xc + '" cy="' + y + '" r="7" fill="' + G + '" opacity="0.35"/>');
+      var ct = r.coil.length > 1 ? r.coil[0] + " … " + r.coil[r.coil.length - 1].split("-").pop() : r.coil[0];
+      var L = lines(ct); L.forEach(function (l, j) { txt(o, xc, y - 20 - (L.length - 1 - j) * 11, l, 10, "#0c2f5c", "middle", true); });
+      txt(o, xc, y + 28, ADDR[r.coil[0]] === "%M" ? "marca" : (ADDR[r.coil[0]] || ""), 9, "#64748b");
+      o.push("</g>");
+      wire(o, xc + 13, y, W - 10, y, r._out);
+      o.push('<line x1="' + (W - 8) + '" y1="6" x2="' + (W - 8) + '" y2="' + (H - 4) + '" stroke="#64748b" stroke-width="3"/>');
+      o.push("</svg>");
+      out.push('<div class="rung' + (r._out ? " on" : "") + '"><div class="rh"><b>Segmento ' + (i + 1) + ":</b> " + esc(r.title) + "</div>" + o.join("") + "</div>");
+    });
+    return out.join("");
+  }
+  function fbId() { return state.fb === "FB3" ? "FB-R" + state.rx : state.fb === "FB14" ? "FB-C" + state.rx : state.fb; }
+  function renderLadder() {
+    var fb = FBMAP[fbId()];
+    $("#fbname").textContent = fb.name + "  ·  en línea";
+    $("#ladder").innerHTML = drawFB(fb);
+  }
+
+  // ---------- niveles y caudalímetros ----------
+  var GAUGES = function () {
+    var r = state.rx;
+    return [
+      { h: "Pozo PEAS", v: T["Nivel-PEAS"], max: 100, u: "%", marks: [[15, "LSL", T["LSL-PEAS"]], [85, "LSH", T["LSH-PEAS"]]],
+        n: [["LSH-PEAS (85 %) → parte bomba BBA-Peas", T["LSH-PEAS"]], ["LSL-PEAS (15 %) → para bomba", T["LSL-PEAS"]]], tag: "LSH-PEAS" },
+      { h: "FIC-PEAS · caudal impulsión", v: T["FIC-PEAS"], max: 60, u: "m³/h", d: 0, flow: true, n: [["Bomba PEAS en marcha y XV-PEAS-ECU-102 abierta", T["FIC-PEAS"] > 1]], tag: "FIC-PEAS" },
+      { h: "Ecualizador", v: T["Nivel-ECU"], max: 100, u: "%", marks: [[20, "LSL", T["LSL-ECU"]], [85, "LSH", T["LSH-ECU"]]],
+        n: [["LSH-ECU (85 %) → parten bombas BBA-ECU-03…07", T["LSH-ECU"]], ["LSL-ECU (20 %) → paran bombas", T["LSL-ECU"]]], tag: "LSH-ECU" },
+      { h: "Flujo-Ecu · línea a reactores", v: T["Flujo-Ecu"], max: 120, u: "m³/h", d: 0, flow: true, n: [], tag: "Flujo-Ecu" },
+      { h: "Fluido-1 (Flujo-Ecu escalado)", v: T["Fluido-1"], max: 100, u: "%", marks: [[80, "≥80", T["Fluido-1"] >= 80]],
+        n: [["Fluido-1 ≥ 80 → abren XV-REACTOR-301…305", T["Fluido-1"] >= 80]], tag: "Flujo-Ecu" },
+      { h: "Reactor " + r + " · nivel", v: T["Nivel-Reactor-" + r], max: 100, u: "%", sel: true,
+        marks: [[20, "20", T["Nivel-Reactor-" + r] >= 20], [50, "50", T["Nivel-Reactor-" + r] >= 50], [90, "90", T["Nivel-Reactor-" + r] <= 90]],
+        n: [["≥ 20 % → sopladores del reactor", T["Nivel-Reactor-" + r] >= 20], ["≥ 50 % → habilita paso a acumulador", T["Nivel-Reactor-" + r] >= 50],
+            ["≤ 90 % → válvula de entrada XV-REACTOR-30" + r + " habilitada", T["Nivel-Reactor-" + r] <= 90]], tag: "XV-REACTOR-30" + r },
+      { h: "Reactor " + r + " · cloro", v: T["Cloro-Reactor-0" + r], max: 10, u: "mg/L", d: 2,
+        marks: [[1, "1", T["Cloro-Reactor-0" + r] >= 1], [2, "2", T["Cloro-Reactor-0" + r] <= 2], [6, "6", T["Cloro-Reactor-0" + r] <= 6]],
+        n: [["≤ 2 mg/L → parte dosificación BBA-Cloro", T["Cloro-Reactor-0" + r] <= 2], ["hasta 6 mg/L → sigue dosificando", T["Dosifica-R" + r]],
+            ["≥ 1 mg/L → abre XV-TK-ACU-40" + r, T["Cloro-Reactor-0" + r] >= 1]], tag: "Cloro-Reactor-0" + r },
+      { h: "Acumulador " + r, v: T["Nivel-ACU-" + r], max: 100, u: "%", marks: [[15, "LSL", T["LSL-ACUMULADOR-" + r]], [90, "LSH", T["LSH-ACUMULADOR-" + r]]],
+        n: [["LSH-ACUMULADOR-" + r + " (90 %) → cierra XV-TK-ACU-40" + r, T["LSH-ACUMULADOR-" + r]]].concat(r === 1 ? [["LSH-ACUMULADOR-1 → parten centrífugas · LSL (15 %) → paran", T["Habilita-BBA-Centrifuga"]]] : []), tag: "LSH-ACUMULADOR-" + r },
+      { h: "Camión aljibe", v: T["Camion"], max: 100, u: "%", n: [["XV-Cachimba abierta → carga", T["XV-Cachimba"]]], tag: "Camion" }
+    ];
+  };
+  function renderGauges() {
+    var o = ['<div class="gsel">Reactor / acumulador: '];
+    for (var i = 1; i <= 5; i++) o.push('<button class="rxb' + (state.rx === i ? " act" : "") + '" data-rx="' + i + '">' + i + "</button>");
+    o.push("</div>");
+    GAUGES().forEach(function (g) {
+      var pct = Math.max(0, Math.min(100, g.v / g.max * 100));
+      o.push('<div class="g" data-tag="' + esc(g.tag) + '"><div class="gh"><span>' + esc(g.h) + "</span><b>" + f1(g.v, g.d === undefined ? 0 : g.d) + " " + g.u + "</b></div>");
+      o.push('<div class="bar' + (g.flow ? " fl" : "") + '"><div class="fill" style="width:' + pct + '%"></div>');
+      (g.marks || []).forEach(function (m) { var p = m[0] / g.max * 100; o.push('<div class="mk' + (m[2] ? " on" : "") + '" style="left:' + p + '%"><span>' + esc(m[1]) + "</span></div>"); });
+      o.push("</div>");
+      g.n.forEach(function (n) { o.push('<div class="gn' + (n[1] ? " on" : "") + '">' + (n[1] ? "● " : "○ ") + esc(n[0]) + "</div>"); });
+      o.push("</div>");
+    });
+    return o.join("");
+  }
+
+  // ---------- registro de acciones: qué condición activa qué ----------
+  var prevCoil = {}, prevEl = new Map(), log = [], lastFocus = 0, started = false;
+  function walk(els, fn) { els.forEach(function (e) { if (e.t === "OR") e.br.forEach(function (b) { walk(b, fn); }); else fn(e); }); }
+  function desc(e) {
+    if (e.t === "CMP") return e.tag + " " + e.op + " " + f1(e.k, 1) + " (act. " + f1(T[e.tag], e.tag === "LOCAL.HOUR" ? 0 : 1) + ")";
+    var v = T[e.tag] ? 1 : 0;
+    return e.tag + " = " + v + (e.t === "NC" ? (v ? " (contacto NC abierto)" : " (contacto NC cerrado)") : "");
+  }
+  function detect() {
+    var evs = [];
+    FBS.forEach(function (fb) {
+      fb.rungs.forEach(function (r, i) {
+        var changed = [];
+        walk(r.els, function (e) { var p = prevEl.get(e); if (p !== undefined && p !== e._on) changed.push(e); prevEl.set(e, e._on); });
+        r.coil.forEach(function (c) {
+          var p = prevCoil[c];
+          if (started && p !== undefined && p !== T[c] && c === r.coil[0]) {
+            var cause = changed.filter(function (e) { return r._out ? e._on : !e._on; });
+            evs.push({ fb: fb, seg: i + 1, title: r.title, coil: r.coil, on: T[c], cause: cause, time: hhmm() });
+          }
+          prevCoil[c] = T[c];
+        });
+      });
+    });
+    evs.forEach(function (ev) {
+      var cz = ev.cause.length ? ev.cause.map(desc).join(" · ") : "cambio de condición";
+      var coilTxt = ev.coil.length > 1 ? ev.coil[0] + " … " + ev.coil[ev.coil.length - 1] : ev.coil[0];
+      log.unshift({ ev: ev, cz: cz, coilTxt: coilTxt }); if (log.length > 60) log.pop();
+      SCENE.highlight(ev.coil[0], ev.on);
+      var short = ev.cause[0] ? ev.cause[0].tag : "";
+      SCENE.callout(ev.coil[0], (ev.on ? "▶ " : "■ ") + ev.coil[0] + (ev.on ? " ON" : " OFF") + (short ? "  ← " + short : ""), ev.on);
+      ev.cause.forEach(function (e) { if (SCENE.hasTag(e.tag)) SCENE.highlight(e.tag, true); });
+      toast(ev, cz, coilTxt);
+    });
+    var physical = evs.filter(function (e) { return e.on && /^(BBA|XV|AGUA)/.test(e.coil[0]); });
+    if (state.follow && physical.length && performance.now() - lastFocus > 5000 && !state.tour) {
+      var ev = physical[0]; lastFocus = performance.now();
+      SCENE.focusTag(ev.coil[0]); state.fb = ev.fb.id.indexOf("FB-R") === 0 ? "FB3" : ev.fb.id.indexOf("FB-C") === 0 ? "FB14" : ev.fb.id;
+      if (ev.fb.n) state.rx = ev.fb.n; syncFbButtons();
+    }
+    if (evs.length && state.tab === "log") renderLog();
+  }
+  function toast(ev, cz, coilTxt) {
+    var t = document.createElement("div"); t.className = "toast " + (ev.on ? "on" : "off");
+    t.innerHTML = "<small>" + esc(ev.fb.name) + " · Segmento " + ev.seg + "</small><div><b>Cuando:</b> " + esc(cz) + "</div><div><b>Se " + (ev.on ? "activa" : "desactiva") + ":</b> " + esc(coilTxt) + "</div>";
+    var box = $("#toasts"); box.prepend(t); while (box.children.length > 3) box.lastChild.remove();
+    setTimeout(function () { t.classList.add("bye"); setTimeout(function () { t.remove(); }, 500); }, 4200);
+  }
+  function renderLog() {
+    $("#log").innerHTML = log.length ? log.map(function (l, i) {
+      if (!l.coilTxt) return '<div class="lg ' + (l.ev.on ? "on" : "off") + '"><div class="lt">' + l.ev.time + " · Planta</div><div>" + esc(l.cz) + "</div></div>";
+      return '<div class="lg ' + (l.ev.on ? "on" : "off") + '" data-i="' + i + '"><div class="lt">' + l.ev.time + " · " + esc(l.ev.fb.name) + " · Seg. " + l.ev.seg + '</div><div><b>Cuando:</b> ' + esc(l.cz) +
+        '</div><div><b>Se ' + (l.ev.on ? "activa" : "desactiva") + ":</b> " + esc(l.coilTxt) + "</div></div>";
+    }).join("") : '<p class="muted">Presiona START: aquí aparece cada condición del ladder y el equipo que activa.</p>';
+  }
+
+  // ---------- variables ----------
+  var VARS = ["START-PEAS", "LSH-PEAS", "LSL-PEAS", "XV-PEAS-101", "BBA-Peas-01", "BBA-Peas-02", "XV-PEAS-ECU-102", "FIC-PEAS", "LSH-ECU", "LSL-ECU", "BBA-ECU-AIR-001", "BBA-ECU-AIR-002",
+    "XV-ECU-AIR-202", "PIC-ECU-AIR", "BBA-ECU-03", "Flujo-Ecu", "Fluido-1", "XV-REACTOR-301", "XV-REACTOR-302", "XV-REACTOR-303", "XV-REACTOR-304", "XV-REACTOR-305",
+    "Nivel-Reactor-1", "Cloro-Reactor-01", "BBA-REACTOR-AIR-01", "BBA-REACTOR-AIR-02", "BBA-Cloro-1", "BBA-Cloro-2", "XV-TK-ACU-401", "LSH-ACUMULADOR-1", "LSL-ACUMULADOR-1",
+    "AGUA-TRATADA-CENTRIFUGA-1", "AGUA-TRATADA-CENTRIFUGA-2", "XV-Cachimba", "Camion-Presente", "Camion-Lleno", "Camion", "Q-TPBT", "Q-General-TG", "Tension-OK", "I-TG", "P-TG", "LOCAL.HOUR"];
+  function renderVars() {
+    $("#vars").innerHTML = "<table><tr><th>Tag</th><th>Dirección</th><th>Valor</th></tr>" + VARS.map(function (t) {
+      var v = T[t], b = typeof v === "boolean";
+      return '<tr data-tag="' + esc(t) + '"><td>' + esc(t) + "</td><td>" + esc(ADDR[t] || "") + '</td><td class="' + (b ? (v ? "v1" : "v0") : "") + '">' + (b ? (v ? "1" : "0") : f1(v, t === "LOCAL.HOUR" ? 0 : 1)) + "</td></tr>";
+    }).join("") + "</table>";
+  }
+
+  // ---------- mantenimiento ----------
+  function maintBoard(id) {
+    var b = MAINT.boards.filter(function (x) { return x.id === id; })[0]; if (!b) return "";
+    var rows = MAINT.boardCommon.concat(MAINT.boardSpecific[id] || []);
+    return '<div class="mb" id="mb-' + id + '"><h4>' + esc(b.name) + '</h4><p class="muted">Contiene: ' + esc(b.contiene) + "</p><table><tr><th>Componente</th><th>Actividad</th><th>Frecuencia</th></tr>" +
+      rows.map(function (r) { return "<tr><td>" + esc(r[0]) + "</td><td>" + esc(r[1]) + "</td><td>" + esc(r[2]) + "</td></tr>"; }).join("") + "</table></div>";
+  }
+  function maintAcc(id) {
+    var a = MAINT.accessories.filter(function (x) { return x.id === id; })[0]; if (!a) return "";
+    return '<div class="mb" id="ma-' + id + '"><h4>' + esc(a.name) + '</h4><p class="muted">' + esc(a.tags) + "</p><table><tr><th>Actividad</th><th>Frecuencia</th></tr>" +
+      a.items.map(function (r) { return "<tr><td>" + esc(r[0]) + "</td><td>" + esc(r[1]) + "</td></tr>"; }).join("") + "</table></div>";
+  }
+  function renderMaint() {
+    $("#maint").innerHTML = '<div class="warn">' + MAINT.general.map(esc).join("<br>") + "</div><h3>Tableros</h3>" + MAINT.boards.map(function (b) { return maintBoard(b.id); }).join("") +
+      "<h3>Equipos y accesorios de terreno</h3>" + MAINT.accessories.map(function (a) { return maintAcc(a.id); }).join("");
+  }
+
+  // ---------- ficha de un objeto tocado ----------
+  var lastInfo = null;
+  function info(inf) {
+    var h = ""; lastInfo = inf;
+    if (inf.kind === "tpbt" || inf.kind === "tg") {
+      var tg2 = inf.kind === "tg", on = T[inf.tag];
+      h = "<h4>" + (tg2 ? "TG-PTAS · automático general 4x400 A Ir 340 A" : "TP-BT · interruptor 4x400 A Ir 340 A") + "</h4><p>Estado: <b class=\"" + (on ? "v1" : "v0") + "\">" + (on ? "CERRADO (ON)" : "ABIERTO (OFF)") + "</b></p>" +
+        (tg2 ? "<p>Medidor: <b>" + (T["Tension-OK"] ? f1(T["V-TG"], 0) + " V · " + f1(T["I-TG"], 0) + " A · " + f1(T["P-TG"], 1) + " kW · " + Math.floor(T["kWh-TG"]).toLocaleString("es-CL") + " kWh" : "sin registro") + "</b></p>" : "") +
+        '<button class="btn sm" data-br="' + inf.tag + '">' + (on ? "Abrir" : "Cerrar") + "</button>" + maintBoard(tg2 ? "tg" : "tpbt");
+    } else if (inf.kind === "camion") {
+      var tr = inf.truck; h = "<h4>Camión aljibe " + tr.n + "</h4><p>Agua: <b>" + Math.round(tr.level) + " %</b> · Estado: <b>" + esc(tr.state) + "</b></p><p class=\"muted\">Carga en la cachimba (FB13: Camion-Presente = 1, Camion-Lleno corta las centrífugas), riega el camino perimetral y vuelve a cargar cuando se queda sin agua.</p>";
+    } else if (inf.kind === "estanque") {
+      h = "<h4>" + esc(inf.tag) + "</h4><p>Nivel: <b>" + f1(T[inf.tag], 0) + " %</b></p>" + maintAcc("estructura");
+    } else if (inf.kind === "tablero") { h = maintBoard(inf.board); }
+    else {
+      var v = T[inf.tag], b = typeof v === "boolean";
+      h = "<h4>" + esc(inf.tag) + '</h4><p>Estado: <b class="' + (b ? (v ? "v1" : "v0") : "") + '">' + (b ? (v ? "ACTIVO (1)" : "DETENIDO (0)") : f1(v, 2)) + "</b>" + (ADDR[inf.tag] ? " · " + esc(ADDR[inf.tag]) : "") + "</p>";
+      var where = [];
+      FBS.forEach(function (fb) { fb.rungs.forEach(function (r, i) { var used = r.coil.indexOf(inf.tag) >= 0; walk(r.els, function (e) { if (e.tag === inf.tag) used = true; }); if (used) where.push(fb.name + " · Segmento " + (i + 1) + ": " + r.title); }); });
+      if (where.length) h += '<p class="muted"><b>En el ladder:</b><br>' + where.slice(0, 5).map(esc).join("<br>") + "</p>";
+      if (inf.termico) h += '<button class="btn sm" id="trip">' + (T[inf.termico] ? "Rearmar relé térmico" : "Simular disparo de relé térmico") + "</button> <small class=\"muted\">" + esc(inf.termico) + "</small>";
+      h += maintAcc(inf.kind === "dosificadora" ? "dosificadora" : inf.kind === "centrifuga" ? "centrifuga" : inf.kind === "soplador" ? "soplador" : inf.kind === "valvula" ? "valvula" : inf.kind === "sensor" ? "sensor" : inf.kind === "transmisor" ? "transmisor" : "bomba");
+    }
+    $("#infoBody").innerHTML = h; $("#info").classList.add("show");
+    var tb = $("#trip"); if (tb) tb.onclick = function () { T[inf.termico] = !T[inf.termico]; info(inf); };
+  }
+
+  // ---------- controles ----------
+  function setTab(t) { state.tab = t; document.querySelectorAll(".tab").forEach(function (b) { b.classList.toggle("act", b.dataset.t === t); }); document.querySelectorAll(".pane").forEach(function (p) { p.style.display = p.id === "p-" + t ? "" : "none"; }); refresh(); }
+  function syncFbButtons() { document.querySelectorAll(".fbb").forEach(function (b) { b.classList.toggle("act", b.dataset.fb === state.fb); }); $("#rxsel").style.display = (state.fb === "FB3" || state.fb === "FB14") ? "" : "none"; document.querySelectorAll("#rxsel button").forEach(function (b) { b.classList.toggle("act", +b.dataset.rx === state.rx); }); }
+  function refresh() {
+    if (state.tab === "ladder") renderLadder(); else if (state.tab === "levels") $("#levels").innerHTML = renderGauges();
+    else if (state.tab === "vars") renderVars(); else if (state.tab === "log") renderLog(); else if (state.tab === "energy") renderEnergy();
+    $("#hudBody").innerHTML = renderGauges();
+  }
+  function station(s) {
+    $("#capT").textContent = s.name; $("#capX").textContent = s.txt;
+    if (s.fb) { state.fb = s.fb.indexOf("FB-R") === 0 ? "FB3" : s.fb.indexOf("FB-C") === 0 ? "FB14" : s.fb; syncFbButtons(); if (state.tab !== "ladder" && state.tab !== "levels") setTab("ladder"); }
+  }
+  function stopTour() { state.tour = false; $("#bInicio").classList.remove("act"); }
+  function running() { return T["POWER-ON"] || T["Power-Ecu"] || T["Power-R1"] || T["Power-AT"]; }
+  var acc = 0;
+  function tick(dt) {
+    acc += dt;
+    if (state.tour) { state.tourT += dt; if (state.tourT > 11) { state.tourT = 0; var nx = (SCENE_cur() + 1); if (nx >= SCENE.STATIONS.length) { stopTour(); } else SCENE.goStation(nx); } }
+    detect();
+    if (acc > 0.2) {
+      acc = 0; refresh();
+      $("#clock").textContent = "LOCAL.HOUR " + hhmm();
+      var on = running(); var st = $("#status"); st.textContent = state.emerg ? "PARADA DE EMERGENCIA" : on ? "PLANTA EN MARCHA" : "PLANTA DETENIDA"; st.className = "pill " + (state.emerg ? "em" : on ? "run" : "stop");
+    }
+  }
+  var cur = 0; function SCENE_cur() { return cur; }
+  function go(i) { cur = (i + SCENE.STATIONS.length) % SCENE.STATIONS.length; SCENE.goStation(cur); }
+
+  function init() {
+    document.querySelectorAll(".tab").forEach(function (b) { b.onclick = function () { setTab(b.dataset.t); if (!state.panel) togglePanel(); }; });
+    document.querySelectorAll(".fbb").forEach(function (b) { b.onclick = function () { state.fb = b.dataset.fb; syncFbButtons(); renderLadder(); }; });
+    document.body.addEventListener("click", function (e) {
+      var rb = e.target.closest("[data-rx]"); if (rb) { state.rx = +rb.dataset.rx; syncFbButtons(); refresh(); return; }
+      var el = e.target.closest(".el, .g, #vars tr[data-tag]"); if (el && el.dataset.tag) { if (SCENE.focusTag(el.dataset.tag)) { stopTour(); } return; }
+      var br = e.target.closest("[data-br]"); if (br) { toggleBreaker(br.dataset.br); if (lastInfo) info(lastInfo); return; }
+      var lg = e.target.closest(".lg"); if (lg) { var l = log[+lg.dataset.i]; if (l) SCENE.focusTag(l.ev.coil[0]); }
+    });
+    $("#bStart").onclick = function () {
+      if (state.emerg) return; started = true;
+      if (!T["Tension-OK"]) { note("Sin tensión: cierra el TP-BT y el automático general del TG-PTAS para dar START", false); stopTour(); go(T["Q-TPBT"] ? 2 : 1); return; }
+      pulse(STARTS, 500); stopTour(); go(SCENE.STATIONS.findIndex(function (s) { return s.fb === "FB1"; }));
+    };
+    $("#bTP").onclick = function () { toggleBreaker("Q-TPBT"); };
+    $("#bTG").onclick = function () { toggleBreaker("Q-General-TG"); };
+    $("#bStop").onclick = function () { pulse(STOPS, 500); };
+    $("#bInicio").onclick = function () { state.tour = !state.tour; state.tourT = 0; this.classList.toggle("act", state.tour); if (state.tour) go(0); };
+    $("#bPrev").onclick = function () { stopTour(); go(cur - 1); };
+    $("#bNext").onclick = function () { stopTour(); go(cur + 1); };
+    $("#bEm").onclick = function () {
+      state.emerg = !state.emerg; EMERG.forEach(function (t) { T[t] = state.emerg; });
+      this.textContent = state.emerg ? "Rearmar emergencia" : "Parada de emergencia"; this.classList.toggle("act", state.emerg);
+    };
+    document.querySelectorAll("[data-sp]").forEach(function (b) { b.onclick = function () { SPEED = +b.dataset.sp; document.querySelectorAll("[data-sp]").forEach(function (x) { x.classList.toggle("act", x === b); }); }; });
+    $("#bLbl").onclick = function () { state.labels = !state.labels; SCENE.labels(state.labels); this.classList.toggle("act", state.labels); };
+    $("#bFollow").onclick = function () { state.follow = !state.follow; this.classList.toggle("act", state.follow); };
+    $("#bPanel").onclick = togglePanel;
+    $("#hudT").onclick = function () { $("#hud").classList.toggle("min"); };
+    $("#infoX").onclick = function () { $("#info").classList.remove("show"); };
+    renderMaint(); syncFbButtons(); syncBreakers(); setTab("ladder"); station(SCENE.STATIONS[0]);
+    if (window.innerWidth < 820) { $("#hud").classList.add("min"); }
+  }
+  function toggleBreaker(tag) {
+    started = true; T[tag] = !T[tag]; syncBreakers();
+    var on = T[tag];
+    var txt = tag === "Q-TPBT" ? (on ? "▶ TP-BT cerrado: el alimentador soterrado lleva energía al TG-PTAS" : "■ TP-BT abierto: sin energía hacia la planta")
+      : (on ? (T["Q-TPBT"] ? "▶ Automático general cerrado: el medidor registra y se energizan los T.D.F.yC" : "Automático general cerrado, pero el TP-BT está abierto: no hay tensión")
+            : "■ Automático general abierto: el medidor no registra y la planta queda sin tensión");
+    SCENE.highlight(tag, on); SCENE.callout(tag, txt, on); note(txt, on);
+    if (!state.tour) SCENE.focusTag(tag);
+  }
+  function syncBreakers() {
+    var a = $("#bTP"), b = $("#bTG");
+    a.textContent = "TP-BT " + (T["Q-TPBT"] ? "ON" : "OFF"); a.classList.toggle("act", T["Q-TPBT"]);
+    b.textContent = "Automático general TG " + (T["Q-General-TG"] ? "ON" : "OFF"); b.classList.toggle("act", T["Q-General-TG"]);
+  }
+  function note(txt, on) {
+    var t = document.createElement("div"); t.className = "toast " + (on ? "on" : "off"); t.innerHTML = "<div><b>" + esc(txt) + "</b></div>";
+    var box = $("#toasts"); box.prepend(t); while (box.children.length > 3) box.lastChild.remove();
+    setTimeout(function () { t.classList.add("bye"); setTimeout(function () { t.remove(); }, 500); }, 4200);
+    log.unshift({ ev: { time: hhmm(), fb: { name: "Planta" }, seg: "-", on: on, coil: [""] }, cz: txt, coilTxt: "" }); if (log.length > 60) log.pop();
+  }
+  function renderEnergy() {
+    var r = function (k, v) { return "<tr><td>" + esc(k) + "</td><td><b>" + v + "</b></td></tr>"; };
+    var tg = T["Q-General-TG"], tp = T["Q-TPBT"];
+    var h = '<div class="g"><div class="gh"><span>Medidor TG-PTAS</span><b>' + (T["Tension-OK"] ? "registrando" : "sin registro") + "</b></div>" +
+      "<table>" + r("Tensión", T["Tension-OK"] ? f1(T["V-TG"], 0) + " V" : "0 V") + r("Corriente", f1(T["I-TG"], 0) + " A") + r("Potencia", f1(T["P-TG"], 1) + " kW") +
+      r("Energía", Math.floor(T["kWh-TG"]).toLocaleString("es-CL") + " kWh") + "</table>";
+    var pct = Math.min(100, T["I-TG"] / 400 * 100);
+    h += '<div class="bar"><div class="fill" style="width:' + pct + '%"></div><div class="mk' + (T["I-TG"] >= 340 ? " on" : "") + '" style="left:85%"><span>Ir 340 A</span></div></div></div>';
+    h += '<div class="g"><div class="gh"><span>Secuencia de energización</span></div>' +
+      '<div class="gn on">● Red MT 23 kV → cut-out K 12 A → transformador 300 kVA 23/0,4 kV</div>' +
+      '<div class="gn' + (tp ? " on" : "") + '">' + (tp ? "● " : "○ ") + "TP-BT 4x400 A (Ir 340 A) cerrado → alimentador soterrado 150 m</div>" +
+      '<div class="gn' + (tg && tp ? " on" : "") + '">' + (tg && tp ? "● " : "○ ") + "Automático general TG cerrado → equipo de medida registra</div>" +
+      '<div class="gn' + (T["Tension-OK"] ? " on" : "") + '">' + (T["Tension-OK"] ? "● " : "○ ") + "Tension-OK = 1 → los T.D.F.yC pueden dar marcha (contacto en cada segmento de marcha)</div>" +
+      '<p class="muted">Si el automático general no está cerrado, el medidor no funciona y ninguna área arranca.</p>' +
+      '<button class="btn sm" data-br="Q-TPBT">' + (tp ? "Abrir" : "Cerrar") + ' TP-BT</button> <button class="btn sm" data-br="Q-General-TG">' + (tg ? "Abrir" : "Cerrar") + " automático general TG</button></div>";
+    var feeds = [["T.D.F.yC PEAS", "4x50 A", "POWER-ON"], ["T.D.F.yC Ecualización", "4x125 A", "Power-Ecu"], ["T.D.F.yC Reactor 1", "4x63 A", "Power-R1"], ["T.D.F.yC Reactor 2", "4x63 A", "Power-R2"],
+      ["T.D.F.yC Reactor 3", "4x63 A", "Power-R3"], ["T.D.F.yC Reactor 4", "4x63 A", "Power-R4"], ["T.D.F.yC Reactor 5", "4x63 A", "Power-R5"], ["T.D.F.yC Agua Tratada", "4x50 A", "Power-AT"]];
+    h += "<table><tr><th>Salida TG</th><th>Protección</th><th>Estado</th></tr>" + feeds.map(function (f) {
+      return "<tr><td>" + f[0] + "</td><td>" + f[1] + '</td><td class="' + (T["Tension-OK"] ? (T[f[2]] ? "v1" : "") : "v0") + '">' + (T["Tension-OK"] ? (T[f[2]] ? "energizado · en marcha" : "energizado") : "sin tensión") + "</td></tr>";
+    }).join("") + "</table>";
+    $("#energy").innerHTML = h;
+  }
+  function togglePanel() { state.panel = !state.panel; document.body.classList.toggle("nopanel", !state.panel); window.dispatchEvent(new Event("resize")); }
+  return { init: init, tick: tick, station: station, stopTour: stopTour, info: info, note: function (a, b) { note(a, b); } };
+})();
+SPEED = 2;
+if (!window.THREE) { document.getElementById("loading").textContent = "No se pudo cargar la librería 3D (three.js). Revisa la conexión a internet y recarga la página."; } else {
+// ===================== ESCENA 3D =====================
+(function () {
+var V = THREE.Vector3;
+var wrap = document.getElementById("scene");
+var renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+renderer.outputEncoding = THREE.sRGBEncoding;
+wrap.appendChild(renderer.domElement);
+var scene = new THREE.Scene();
+scene.background = new THREE.Color(0xc9d3dc);
+scene.fog = new THREE.Fog(0xc9d3dc, 150, 300);
+var camera = new THREE.PerspectiveCamera(50, 1, 0.08, 700);
+scene.add(new THREE.HemisphereLight(0xffffff, 0x8a7a5c, 0.85));
+var sun = new THREE.DirectionalLight(0xffffff, 0.75); sun.position.set(30, 60, 40); scene.add(sun);
+var wellLight = new THREE.PointLight(0xfff2d0, 0.9, 12); wellLight.position.set(40.5, -1.5, 11); scene.add(wellLight);
+
+// ---------- utilidades ----------
+var MC = {};
+function M(color, o) {
+  o = o || {}; var k = color + JSON.stringify(o);
+  if (!MC[k]) MC[k] = new THREE.MeshStandardMaterial(Object.assign({ color: color, roughness: 0.75, metalness: 0.1 }, o));
+  return MC[k];
+}
+function add(mesh, x, y, z, parent) { mesh.position.set(x || 0, y || 0, z || 0); (parent || scene).add(mesh); return mesh; }
+function box(w, h, d, mat) { return new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat); }
+function cyl(r1, r2, h, mat, seg, open) { return new THREE.Mesh(new THREE.CylinderGeometry(r1, r2, h, seg || 24, 1, !!open), mat); }
+function sph(r, mat) { return new THREE.Mesh(new THREE.SphereGeometry(r, 16, 12), mat); }
+var CONC = M(0xb9b7b0), CONC2 = M(0x9e9c96), STEEL = M(0x8a96a3, { metalness: 0.5, roughness: 0.4 }), PIPE = M(0x5a6e84, { metalness: 0.4, roughness: 0.5 });
+var NAVY = M(0x0c2f5c), PANEL = M(0xd6d8d4, { roughness: 0.5 }), DARK = M(0x30353b), YEL = M(0xe8b923);
+var ON = M(0x22c55e, { emissive: 0x16a34a, emissiveIntensity: 0.9 }), OFF = M(0xdc2626, { emissive: 0x991b1b, emissiveIntensity: 0.6 }), IDLE = M(0x6b7280);
+var WATER = new THREE.MeshStandardMaterial({ color: 0x4f8fb8, transparent: true, opacity: 0.82, roughness: 0.2, metalness: 0.1 });
+var SEWAGE = new THREE.MeshStandardMaterial({ color: 0x6f6a4c, transparent: true, opacity: 0.9, roughness: 0.3 });
+var CLEAN = new THREE.MeshStandardMaterial({ color: 0x5fb3e0, transparent: true, opacity: 0.8, roughness: 0.15 });
+
+var pickables = [], TAGOBJ = {};
+function reg(tag, obj) { if (!TAGOBJ[tag]) TAGOBJ[tag] = obj; }
+function pick(obj, info) { obj.traverse(function (o) { if (o.isMesh) { o.userData.info = info; pickables.push(o); } }); }
+
+function label(text, opt) {
+  opt = opt || {};
+  var c = document.createElement("canvas"), g = c.getContext("2d"), fs = 44;
+  g.font = "bold " + fs + "px Arial"; var w = Math.ceil(g.measureText(text).width) + 36;
+  c.width = w; c.height = 72;
+  g.font = "bold " + fs + "px Arial";
+  g.fillStyle = opt.bg || "rgba(12,47,92,0.88)"; roundRect(g, 0, 0, w, 72, 16); g.fill();
+  g.textBaseline = "middle";
+  if (opt.stroke) { g.lineWidth = 8; g.strokeStyle = opt.stroke; g.strokeText(text, 18, 38); }
+  g.fillStyle = opt.fg || "#ffffff"; g.fillText(text, 18, 38);
+  var tex = new THREE.CanvasTexture(c); tex.encoding = THREE.sRGBEncoding;
+  var s = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, depthWrite: false }));
+  var h = opt.h || 0.55; s.scale.set(h * w / 72, h, 1); s.userData.isLabel = true;
+  return s;
+}
+function roundRect(g, x, y, w, h, r) { g.beginPath(); g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r); g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath(); }
+// etiqueta con valor que se actualiza
+function liveLabel(fn, opt) {
+  var c = document.createElement("canvas"); c.width = 512; c.height = 80;
+  var tex = new THREE.CanvasTexture(c); tex.encoding = THREE.sRGBEncoding;
+  var s = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, depthWrite: false }));
+  var h = (opt && opt.h) || 0.6; s.scale.set(h * 512 / 80, h, 1); s.userData.isLabel = true;
+  s.userData.live = { fn: fn, c: c, tex: tex, last: "" };
+  liveLabels.push(s); return s;
+}
+var liveLabels = [];
+function drawLive(s) {
+  var L = s.userData.live, txt = L.fn(); if (txt === L.last) return; L.last = txt;
+  var g = L.c.getContext("2d"); g.clearRect(0, 0, 512, 80);
+  g.font = "bold 40px Arial"; var w = Math.min(512, g.measureText(txt).width + 32), x = (512 - w) / 2;
+  g.fillStyle = "rgba(255,255,255,0.92)"; roundRect(g, x, 4, w, 72, 14); g.fill();
+  g.strokeStyle = "#0c2f5c"; g.lineWidth = 3; g.stroke();
+  g.fillStyle = "#0c2f5c"; g.textBaseline = "middle"; g.textAlign = "center"; g.fillText(txt, 256, 42);
+  L.tex.needsUpdate = true;
+}
+
+// tubería por tramos rectos + recorrido para partículas
+function pipe(pts, r, mat, parent) {
+  var grp = new THREE.Group(); var P = pts.map(function (p) { return new V(p[0], p[1], p[2]); });
+  for (var i = 0; i < P.length - 1; i++) {
+    var a = P[i], b = P[i + 1], d = new V().subVectors(b, a), len = d.length();
+    var m = cyl(r, r, len, mat || PIPE, 12); m.position.copy(a).addScaledVector(d, 0.5);
+    m.quaternion.setFromUnitVectors(new V(0, 1, 0), d.normalize()); grp.add(m);
+    if (i > 0) { var e = sph(r * 1.15, mat || PIPE); e.position.copy(a); grp.add(e); }
+  }
+  (parent || scene).add(grp);
+  return { group: grp, pts: P };
+}
+// partículas que viajan por una tubería cuando cond() es verdadero
+var flows = [];
+function flow(path, cond, color, n, speed) {
+  var P = path.pts, seg = [], total = 0;
+  for (var i = 0; i < P.length - 1; i++) { var l = P[i].distanceTo(P[i + 1]); seg.push(l); total += l; }
+  n = n || Math.max(6, Math.round(total * 1.6));
+  var geo = new THREE.BufferGeometry(); var arr = new Float32Array(n * 3); geo.setAttribute("position", new THREE.BufferAttribute(arr, 3));
+  var pts = new THREE.Points(geo, new THREE.PointsMaterial({ color: color || 0x7fdcff, size: 0.22, sizeAttenuation: true }));
+  scene.add(pts);
+  flows.push({ P: P, seg: seg, total: total, n: n, arr: arr, geo: geo, pts: pts, cond: cond, off: Math.random(), speed: speed || 2.2 });
+}
+function updFlows(dt) {
+  flows.forEach(function (f) {
+    var on = f.cond(); f.pts.visible = on; if (!on) return;
+    f.off = (f.off + dt * f.speed * (f.speedFn ? f.speedFn() : 1) * SPEED / f.total) % 1;
+    for (var k = 0; k < f.n; k++) {
+      var d = ((k / f.n + f.off) % 1) * f.total, i = 0;
+      while (i < f.seg.length - 1 && d > f.seg[i]) { d -= f.seg[i]; i++; }
+      var t = Math.min(1, d / f.seg[i]), a = f.P[i], b = f.P[i + 1];
+      f.arr[k * 3] = a.x + (b.x - a.x) * t; f.arr[k * 3 + 1] = a.y + (b.y - a.y) * t; f.arr[k * 3 + 2] = a.z + (b.z - a.z) * t;
+    }
+    f.geo.attributes.position.needsUpdate = true;
+  });
+}
+// burbujas de aireación
+var bubbles = [];
+function bubbleField(cx, cz, w, d, y0, yTop, cond, round) {
+  var n = 90, geo = new THREE.BufferGeometry(), arr = new Float32Array(n * 3), base = [];
+  for (var i = 0; i < n; i++) {
+    var x, z;
+    if (round) { var a = Math.random() * 6.283, r = Math.sqrt(Math.random()) * round; x = cx + Math.cos(a) * r; z = cz + Math.sin(a) * r; }
+    else { x = cx + (Math.random() - 0.5) * w; z = cz + (Math.random() - 0.5) * d; }
+    base.push([x, z, Math.random()]);
+  }
+  geo.setAttribute("position", new THREE.BufferAttribute(arr, 3));
+  var pts = new THREE.Points(geo, new THREE.PointsMaterial({ color: 0xffffff, size: 0.16, transparent: true, opacity: 0.85 }));
+  scene.add(pts); bubbles.push({ arr: arr, geo: geo, pts: pts, base: base, y0: y0, top: yTop, cond: cond, n: n });
+}
+function updBubbles(dt) {
+  bubbles.forEach(function (b) {
+    var on = b.cond(); b.pts.visible = on; if (!on) return; var top = b.top();
+    for (var i = 0; i < b.n; i++) {
+      var p = b.base[i]; p[2] = (p[2] + dt * 0.45 * SPEED) % 1;
+      b.arr[i * 3] = p[0] + Math.sin(p[2] * 9 + i) * 0.08; b.arr[i * 3 + 1] = b.y0 + (top - b.y0) * p[2]; b.arr[i * 3 + 2] = p[1];
+    }
+    b.geo.attributes.position.needsUpdate = true;
+  });
+}
+
+// ---------- equipos ----------
+var lamps = [], spinners = [], valves = [];
+function lamp(x, y, z, cond, parent, r) { var m = sph(r || 0.12, IDLE); add(m, x, y, z, parent); lamps.push({ m: m, cond: cond }); return m; }
+function subPump(x, y, z, tag, infoExtra) {
+  var g = new THREE.Group(); g.position.set(x, y, z); scene.add(g);
+  add(cyl(0.32, 0.36, 0.55, NAVY), 0, 0.28, 0, g);               // voluta
+  add(cyl(0.26, 0.26, 0.75, M(0x1d4f91)), 0, 0.92, 0, g);         // motor
+  add(cyl(0.12, 0.12, 0.12, DARK), 0, 1.36, 0, g);
+  var imp = add(box(0.5, 0.04, 0.08, YEL), 0, 0.05, 0, g); spinners.push({ m: imp, cond: function () { return T[tag]; }, ax: "y" });
+  lamp(0, 1.48, 0, function () { return T[tag]; }, g, 0.1);
+  var lb = label(tag, { h: 0.42 }); add(lb, 0, 1.95, 0, g);
+  pick(g, { kind: "bomba", tag: tag, termico: infoExtra }); reg(tag, g);
+  return g;
+}
+function blower(x, z, tag, rot, s, termico) {
+  s = s || 1; var g = new THREE.Group(); g.position.set(x, 0, z); g.rotation.y = rot || 0; g.scale.setScalar(s); scene.add(g);
+  add(box(2.0, 0.25, 1.1, DARK), 0, 0.13, 0, g);
+  var mot = add(cyl(0.38, 0.38, 0.9, M(0x2563a8)), -0.45, 0.68, 0, g); mot.rotation.z = Math.PI / 2;
+  var hous = add(cyl(0.55, 0.55, 0.55, M(0x9aa5b1, { metalness: 0.4 })), 0.45, 0.8, 0, g); hous.rotation.z = Math.PI / 2;
+  var cp = add(box(0.12, 0.42, 0.12, YEL), 0.05, 0.68, 0, g); spinners.push({ m: cp, cond: function () { return T[tag]; }, ax: "x" });
+  add(cyl(0.16, 0.16, 0.5, STEEL), 0.45, 1.3, 0, g);
+  lamp(-0.85, 1.2, 0, function () { return T[tag]; }, g, 0.1);
+  add(label(tag, { h: 0.42 / s }), 0, 1.9, 0, g);
+  pick(g, { kind: "soplador", tag: tag, termico: termico }); reg(tag, g);
+  return g;
+}
+function centrifugal(x, z, tag, termico) {
+  var g = new THREE.Group(); g.position.set(x, 0, z); scene.add(g);
+  add(box(1.9, 0.22, 0.8, DARK), 0, 0.11, 0, g);
+  var mot = add(cyl(0.3, 0.3, 0.9, M(0x2563a8)), 0.4, 0.55, 0, g); mot.rotation.z = Math.PI / 2;
+  var vol = add(cyl(0.38, 0.38, 0.3, NAVY), -0.45, 0.55, 0, g); vol.rotation.z = Math.PI / 2;
+  var cp = add(box(0.1, 0.34, 0.1, YEL), -0.15, 0.55, 0, g); spinners.push({ m: cp, cond: function () { return T[tag]; }, ax: "x" });
+  lamp(0.9, 0.95, 0, function () { return T[tag]; }, g, 0.09);
+  add(label(tag, { h: 0.4 }), 0, 1.5, 0, g);
+  pick(g, { kind: "centrifuga", tag: tag, termico: termico }); reg(tag, g);
+  return g;
+}
+function valve(x, y, z, tag, axis) {
+  var g = new THREE.Group(); g.position.set(x, y, z); scene.add(g);
+  var b = add(sph(0.26, STEEL), 0, 0, 0, g);
+  add(cyl(0.05, 0.05, 0.35, STEEL), 0, 0.3, 0, g);
+  var act = add(box(0.42, 0.3, 0.32, IDLE), 0, 0.58, 0, g);
+  valves.push({ act: act, tag: tag });
+  add(label(tag, { h: 0.36 }), 0, 1.05, 0, g);
+  pick(g, { kind: "valvula", tag: tag }); reg(tag, g);
+  return g;
+}
+function transmitter(x, y, z, tag, unit, dec) {
+  var g = new THREE.Group(); g.position.set(x, y, z); scene.add(g);
+  add(cyl(0.05, 0.05, 0.4, STEEL), 0, 0.2, 0, g);
+  add(box(0.26, 0.3, 0.2, M(0x1f6fb5)), 0, 0.5, 0, g);
+  add(liveLabel(function () { return tag + " " + fmt(T[tag], dec) + " " + unit; }, { h: 0.42 }), 0, 1.0, 0, g);
+  pick(g, { kind: "transmisor", tag: tag }); reg(tag, g);
+}
+function fmt(v, d) { return (typeof v === "number" ? v.toFixed(d === undefined ? 1 : d) : v ? "1" : "0").replace(".", ","); }
+
+// tablero (T.D.F.yC)
+var boards = [], screens = [];
+var SCR_ON = M(0x0c2f5c, { emissive: 0x1d4f91, emissiveIntensity: 0.6 }), SCR_OFF = M(0x111418);
+function cabinet(x, z, name, board, powerTags, rot) {
+  var g = new THREE.Group(); g.position.set(x, 0, z); g.rotation.y = rot || 0; scene.add(g);
+  add(box(2.2, 0.15, 0.9, CONC2), 0, 0.08, 0, g);
+  add(box(1.9, 2.1, 0.6, PANEL), 0, 1.2, 0, g);
+  add(box(0.92, 1.95, 0.02, M(0xe2e4e0)), -0.48, 1.2, 0.31, g); add(box(0.92, 1.95, 0.02, M(0xe2e4e0)), 0.48, 1.2, 0.31, g);
+  add(box(0.05, 0.25, 0.05, DARK), -0.08, 1.2, 0.34, g); add(box(0.05, 0.25, 0.05, DARK), 0.08, 1.2, 0.34, g);
+  var scr = add(box(0.5, 0.32, 0.02, M(0x0c2f5c, { emissive: 0x1d4f91, emissiveIntensity: 0.6 })), -0.48, 1.6, 0.33, g); screens.push(scr);
+  var p = powerTags;
+  lamp(0.3, 1.75, 0.34, function () { return p.some(function (t) { return T[t]; }); }, g, 0.07);
+  var red = sph(0.07, OFF); add(red, 0.5, 1.75, 0.34, g); lamps.push({ m: red, cond: function () { return T["Tension-OK"] && !p.some(function (t) { return T[t]; }); }, offMat: IDLE });
+  var em = add(cyl(0.09, 0.09, 0.06, M(0xdc2626)), 0.7, 1.75, 0.34, g); em.rotation.x = Math.PI / 2;
+  add(box(0.3, 0.3, 0.02, YEL), 0.7, 1.75, 0.315, g);
+  add(label(name, { h: 0.5 }), 0, 2.75, 0, g);
+  pick(g, { kind: "tablero", board: board, name: name });
+  boards.push(g); return g;
+}
+
+// ---------- terreno (losa gris) con foso del PEAS enterrado ----------
+var PIT = { x0: 33.6, x1: 42.4, z0: 2.6, z1: 13.4, y: -5.6 };
+function inPitXZ(p) { return p.x > PIT.x0 && p.x < PIT.x1 && p.z > PIT.z0 && p.z < PIT.z1; }
+function inWell(p) { return p.y < 0.4 && inPitXZ(p); }
+var PITCAM = [41.5, -1.7, 12.6], PITTOP = [40.6, 1.2, 11.6], PITHIGH = [42, 9, 18];
+renderer.localClippingEnabled = true;
+(function ground() {
+  var sh = new THREE.Shape(); sh.moveTo(-320, -320); sh.lineTo(320, -320); sh.lineTo(320, 320); sh.lineTo(-320, 320); sh.lineTo(-320, -320);
+  var hole = new THREE.Path(); hole.moveTo(PIT.x0, -PIT.z1); hole.lineTo(PIT.x0, -PIT.z0); hole.lineTo(PIT.x1, -PIT.z0); hole.lineTo(PIT.x1, -PIT.z1); hole.lineTo(PIT.x0, -PIT.z1);
+  sh.holes.push(hole);
+  var geo = new THREE.ShapeGeometry(sh); geo.rotateX(-Math.PI / 2);
+  add(new THREE.Mesh(geo, M(0xc8ad84, { roughness: 1 })), 0, 0, 0);
+  // losa de la planta (gris más claro)
+  var slab = new THREE.Shape(); slab.moveTo(-36, -16); slab.lineTo(47, -16); slab.lineTo(47, 15); slab.lineTo(-36, 15); slab.lineTo(-36, -16);
+  var h2 = new THREE.Path(); h2.moveTo(PIT.x0, -PIT.z1); h2.lineTo(PIT.x0, -PIT.z0); h2.lineTo(PIT.x1, -PIT.z0); h2.lineTo(PIT.x1, -PIT.z1); h2.lineTo(PIT.x0, -PIT.z1); slab.holes.push(h2);
+  var sg = new THREE.ShapeGeometry(slab); sg.rotateX(-Math.PI / 2); add(new THREE.Mesh(sg, M(0xe9eaea, { roughness: 0.9 })), 0, 0.02, 0);
+  // foso: muros de tierra y fondo
+  var SOIL = M(0x9b8466, { roughness: 1 }), cx = (PIT.x0 + PIT.x1) / 2, cz = (PIT.z0 + PIT.z1) / 2, w = PIT.x1 - PIT.x0, d = PIT.z1 - PIT.z0, hh = -PIT.y;
+  add(box(w, hh, 0.2, SOIL), cx, PIT.y / 2, PIT.z0); add(box(w, hh, 0.2, SOIL), cx, PIT.y / 2, PIT.z1);
+  add(box(0.2, hh, d, SOIL), PIT.x0, PIT.y / 2, cz); add(box(0.2, hh, d, SOIL), PIT.x1, PIT.y / 2, cz);
+  add(box(w, 0.2, d, M(0x7d6b54)), cx, PIT.y, cz);
+  // baranda amarilla alrededor del foso
+  [[PIT.x0, PIT.z0, PIT.x1, PIT.z0], [PIT.x1, PIT.z0, PIT.x1, PIT.z1], [PIT.x1, PIT.z1, PIT.x0, PIT.z1], [PIT.x0, PIT.z1, PIT.x0, PIT.z0]].forEach(function (s) {
+    pipe([[s[0], 1.1, s[1]], [s[2], 1.1, s[3]]], 0.04, YEL); pipe([[s[0], 0.55, s[1]], [s[2], 0.55, s[3]]], 0.03, YEL);
+    var n = Math.round(Math.hypot(s[2] - s[0], s[3] - s[1]) / 1.6);
+    for (var i = 0; i <= n; i++) add(cyl(0.04, 0.04, 1.1, YEL, 6), s[0] + (s[2] - s[0]) * i / n, 0.55, s[1] + (s[3] - s[1]) * i / n);
+  });
+})();
+function stationLabel(text, x, y, z) { return add(label(text, { h: 1.0, bg: "rgba(0,0,0,0)", fg: "#ffe600", stroke: "#3a3a00" }), x, y, z); }
+
+// estanque cilíndrico horizontal blanco con anillos (como TK acumuladores y PEAS del HMI)
+var TANKW = new THREE.MeshStandardMaterial({ color: 0xf1ede4, roughness: 0.55, metalness: 0.05, transparent: true, opacity: 0.5, side: THREE.DoubleSide, depthWrite: false });
+var RIB = M(0xe4dfd3);
+function hTank(cx, cy, cz, len, r, axis, waterMat) {
+  var g = new THREE.Group(); g.position.set(cx, cy, cz); if (axis === "z") g.rotation.y = Math.PI / 2; scene.add(g);
+  var shell = add(cyl(r, r, len, TANKW, 40, true), 0, 0, 0, g); shell.rotation.z = Math.PI / 2;
+  [-1, 1].forEach(function (s) { var cap = new THREE.Mesh(new THREE.SphereGeometry(r, 32, 16, 0, Math.PI * 2, 0, Math.PI / 2), TANKW); cap.scale.y = 0.35; cap.rotation.z = -s * Math.PI / 2; add(cap, s * len / 2, 0, 0, g); });
+  var nr = Math.floor(len / 1.1);
+  for (var i = 0; i <= nr; i++) { var rb = new THREE.Mesh(new THREE.TorusGeometry(r + 0.01, 0.07, 6, 40), RIB); rb.rotation.y = Math.PI / 2; add(rb, -len / 2 + i * len / nr, 0, 0, g); }
+  [-len * 0.3, len * 0.3].forEach(function (mx) { add(cyl(0.38, 0.38, 0.22, DARK, 20), mx, r + 0.08, 0, g); });
+  [-len * 0.32, len * 0.32].forEach(function (sx) { add(box(0.4, 0.6, r * 1.6, M(0xbfc3c5)), sx, -r + 0.05, 0, g); });
+  // agua: cilindro recortado por un plano al nivel + superficie
+  var mat = waterMat.clone(); var plane = new THREE.Plane(new V(0, -1, 0), 0); mat.clippingPlanes = [plane]; mat.side = THREE.DoubleSide;
+  var w = add(cyl(r - 0.06, r - 0.06, len - 0.1, mat, 32), 0, 0, 0, g); w.rotation.z = Math.PI / 2;
+  var top = add(box(len - 0.1, 0.02, 1, waterMat), 0, 0, 0, g);
+  return { g: g, plane: plane, top: top, r: r, cy: cy, len: len };
+}
+function setTankLevel(t, pct) {
+  var h = -t.r + 0.08 + pct / 100 * (2 * t.r - 0.16);
+  t.plane.constant = t.cy + h;
+  var chord = 2 * Math.sqrt(Math.max(0, (t.r - 0.06) * (t.r - 0.06) - h * h));
+  t.top.position.y = h; t.top.scale.z = Math.max(0.01, chord); t.top.visible = pct > 0.5;
+}
+
+// ---------- PEAS ENTERRADO ----------
+var PX = 38, PY = -3.3, PZ = 8, PR = 1.9, PL = 8;
+var peasTank = hTank(PX, PY, PZ, PL, PR, "z", SEWAGE);
+stationLabel("PEAS", PX, 3.2, PZ);
+add(label("Estanque PEAS enterrado", { h: 0.45 }), PX, 2.2, PZ);
+var peasLive = liveLabel(function () { return "Nivel-PEAS " + Math.round(T["Nivel-PEAS"]) + " %"; }, { h: 0.55 }); add(peasLive, PX, 1.5, PZ);
+add(liveLabel(function () { return "Nivel " + Math.round(T["Nivel-PEAS"]) + " %  |  FIC-PEAS " + fmt(T["FIC-PEAS"], 0) + " m³/h"; }, { h: 0.34 }), PX + 2.6, -1.0, PZ + 3.6);
+// chimeneas de acceso hasta la superficie con tapa negra
+[[PZ - 2.4], [PZ + 1.6]].forEach(function (z) { add(cyl(0.42, 0.42, -PY - PR + 0.3, M(0xbfc3c5), 20), PX, (PY + PR + 0.3) / 2, z[0]); add(cyl(0.48, 0.48, 0.12, DARK, 20), PX, 0.32, z[0]); });
+var LV = function (pct) { return PY - PR + 0.08 + pct / 100 * (2 * PR - 0.16); };
+subPump(PX - 0.55, PY - PR + 0.15, PZ + 1.6, "BBA-Peas-01", "RELE-Termico-BB1-Peas");
+subPump(PX + 0.55, PY - PR + 0.15, PZ + 1.6, "BBA-Peas-02", "RELE-Termico-BB2-Peas");
+function electrode(x, z, pct, tag) {
+  var yTip = LV(pct); add(cyl(0.02, 0.02, 0.3 - yTip, DARK, 6), x, (0.3 + yTip) / 2, z);
+  var tip = sph(0.09, IDLE); add(tip, x, yTip, z); lamps.push({ m: tip, cond: function () { return T[tag]; }, onMat: M(0xfacc15, { emissive: 0xeab308, emissiveIntensity: 1 }) });
+  add(label(tag, { h: 0.3 }), x - 0.7, yTip + 0.2, z); pick(tip, { kind: "sensor", tag: tag }); reg(tag, tip);
+}
+electrode(PX - 0.15, PZ - 2.3, 85, "LSH-PEAS");
+electrode(PX + 0.15, PZ - 2.5, 15, "LSL-PEAS");
+// llegada de aguas servidas (café) con XV-PEAS-101
+var inlet = pipe([[50, 0.45, PZ + 2.8], [41.0, 0.45, PZ + 2.8], [41.0, PY + 0.6, PZ + 2.8], [PX + PR - 0.1, PY + 0.6, PZ + 2.8]], 0.2, M(0xa2854f));
+valve(45, 0.45, PZ + 2.8, "XV-PEAS-101");
+add(label("Llegada aguas servidas", { h: 0.42 }), 48, 1.5, PZ + 2.8);
+flow(inlet, function () { return T["XV-PEAS-101"] && T["POWER-ON"]; }, 0xb69a63);
+// impulsión al ecualizador
+var r1 = pipe([[PX - 0.55, PY - PR + 1.5, PZ + 1.6], [PX - 0.55, 1.1, PZ + 1.6], [PX - 0.55, 1.1, PZ - 0.2], [PX, 1.1, PZ - 0.2]], 0.12);
+var r2 = pipe([[PX + 0.55, PY - PR + 1.5, PZ + 1.6], [PX + 0.55, 1.1, PZ + 1.6], [PX + 0.55, 1.1, PZ - 0.2], [PX, 1.1, PZ - 0.2]], 0.12);
+var imp = pipe([[PX, 1.1, PZ - 0.2], [PX, 1.1, 0.4], [PX, 3.9, 0.4], [PX, 3.9, -1.2], [PX, 3.0, -1.2]], 0.16, M(0xb8a06a));
+valve(PX, 1.1, 1.6, "XV-PEAS-ECU-102");
+transmitter(PX + 0.5, 1.2, 4.8, "FIC-PEAS", "m³/h", 0);
+flow(r1, function () { return T["BBA-Peas-01"] && T["XV-PEAS-ECU-102"]; });
+flow(r2, function () { return T["BBA-Peas-02"] && T["XV-PEAS-ECU-102"]; });
+flow(imp, function () { return (T["BBA-Peas-01"] || T["BBA-Peas-02"]) && T["XV-PEAS-ECU-102"]; });
+reg("POWER-ON", cabinet(44.5, 1.2, "T.D.F.yC PEAS", "peas", ["POWER-ON"], -Math.PI / 2)); reg("BOMBA-PEAS-RUN", TAGOBJ["BBA-Peas-01"]); reg("Nivel-PEAS", peasLive);
+
+// ---------- ECUALIZADOR (estanque rectangular de hormigón) ----------
+var EX = 37, EZ = -6, EW = 6, ED = 9, EH = 3.2;
+add(box(EW, EH, 0.3, CONC), EX, EH / 2, EZ - ED / 2); add(box(EW, EH, 0.3, CONC), EX, EH / 2, EZ + ED / 2);
+add(box(0.3, EH, ED, CONC), EX - EW / 2, EH / 2, EZ); add(box(0.3, EH, ED, CONC), EX + EW / 2, EH / 2, EZ);
+add(box(EW, EH * 0.7, 0.2, CONC), EX, EH * 0.35, EZ);
+var ecuWater = add(box(EW - 0.3, 1, ED - 0.3, SEWAGE), EX, 0, EZ);
+stationLabel("ECUALIZADOR", EX, EH + 3.2, EZ);
+add(liveLabel(function () { return "Nivel-ECU " + Math.round(T["Nivel-ECU"]) + " %"; }, { h: 0.55 }), EX, EH + 2.2, EZ);
+bubbleField(EX + 0.9, EZ, 3.2, ED - 1.2, 0.3, function () { return 0.25 + T["Nivel-ECU"] / 100 * (EH - 0.3); }, function () { return T["XV-ECU-AIR-202"]; });
+["03", "04", "05", "06", "07"].forEach(function (k, i) {
+  var z = EZ - 3.6 + i * 1.8; subPump(EX - 2.2, 0.15, z, "BBA-ECU-" + k);
+  var rz = pipe([[EX - 2.2, 1.6, z], [EX - 2.2, 3.7, z], [EX - 3.5, 3.7, z]], 0.09, YEL);
+  flow(rz, function () { return T["BBA-ECU-" + k] && anyReactorValve(); }, 0x7fdcff, 6);
 });
-label("REACTORES 1 A 5", 0, 6.5, -13.2);
-// Tablero general
-box(2, 2.2, .7, mat.gray, 12.5, 1.1, -14); box(.3, .3, .05, M(0x22b14c), 12, 1.8, -13.62); label("TG-PTAS · PLC", 12.5, 3.9, -14, .6, "#ffffff");
-// TK acumuladores (agua tratada)
-const TKx = -21;
-RZ.forEach(z => { cyl(1.7, 13, mat.white, TKx, 2.1, z, "x", P, 32); for (let k = -5; k <= 5; k += 1.4) { const t = new THREE.Mesh(new THREE.TorusGeometry(1.72, .06, 8, 32), mat.white); t.rotation.y = Math.PI / 2; t.position.set(TKx + k, 2.1, z); P.add(t); } for (const dx of [-4, 3]) { cyl(.35, .2, mat.black, TKx + dx, 3.85, z, "y"); box(.4, .4, 2.6, mat.conc, TKx + dx, .2, z); } const cap = new THREE.Mesh(new THREE.SphereGeometry(1.7, 24, 12, 0, Math.PI), mat.white); cap.rotation.y = -Math.PI / 2; cap.scale.set(.35, 1, 1); cap.position.set(TKx + 6.5, 2.1, z); P.add(cap); const c2 = cap.clone(); c2.rotation.y = Math.PI / 2; c2.position.x = TKx - 6.5; P.add(c2); });
-label("TK - ACUMULADORES", TKx, 6.5, -13.2);
-// Cachimba
-motor("BC-101", "Bomba centrífuga impulsión cachimba 1", "cach", -32, .2, 14, "pump"); motor("BC-102", "Bomba centrífuga impulsión cachimba 2 (alterna)", "cach", -32, .2, 15.4, "pump", true);
-box(1.4, 1.8, .6, mat.gray, -29.5, .9, 16.5); box(.5, 3.5, .5, mat.dark, -38.5, 1.75, 14.7); label("CACHIMBA", -34, 4.5, 14.7);
-// ---------- cañerías y rutas de flujo
-const PATHS = [];
-function route(pts, kind) { pipe(pts, .16, kind === "raw" ? mat.raw : mat.clear); const v = pts.map(p => new THREE.Vector3(...p)); let L = 0; const acc = [0]; for (let i = 1; i < v.length; i++) { L += v[i].distanceTo(v[i - 1]); acc.push(L); } PATHS.push({ v, acc, L, kind, st: pts.st }); }
-const r0 = [[34, .9, 11], [22.6, .9, 11]]; r0.st = "peas"; route(r0, "raw");
-const r1 = [[21, 2.9, 12.8], [21, 3.6, 12.8], [17, 3.6, 12.8], [17, 3.6, 2.3]]; r1.st = "peas"; route(r1, "raw");
-RZ.forEach((z, i) => { const r = [[ex - 2.8, 3.1, ez - 3.6 + i * 1.8], [12.6, 3.1, ez - 3.6 + i * 1.8], [12.6, 3.1, z - .6], [9.2, 3.1, z - .6]]; r.st = "ecu"; route(r, "raw"); });
-RZ.forEach(z => { const r = [[-9.2, 2.6, z + .8], [-12.5, 2.6, z + .8], [-12.5, 2.6, z], [-14.2, 2.6, z]]; r.st = "rea"; route(r, "clear"); });
-RZ.forEach(z => { const r = [[-27.9, .7, z], [-29.2, .7, z], [-29.2, .7, 14], [-31.4, .7, 14]]; r.st = "tk"; route(r, "clear"); });
-const r6 = [[-32.8, .55, 14], [-38.2, .55, 14], [-38.2, 3.3, 14.7]]; r6.st = "cach"; route(r6, "clear");
-function at(p, d) { d = ((d % p.L) + p.L) % p.L; let i = 1; while (i < p.acc.length - 1 && p.acc[i] < d) i++; const t = (d - p.acc[i - 1]) / (p.acc[i] - p.acc[i - 1] || 1); return p.v[i - 1].clone().lerp(p.v[i], t); }
-const NP = 900; const dropG = new THREE.SphereGeometry(.13, 8, 6);
-const drops = new THREE.InstancedMesh(dropG, new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0x222222 }), NP); drops.frustumCulled = false; P.add(drops);
-const DP = []; PATHS.forEach((p, pi) => { const n = Math.max(6, Math.round(p.L * 1.6)); for (let k = 0; k < n && DP.length < NP; k++) DP.push({ pi, o: k / n * p.L }); });
-const cRaw = new THREE.Color(0x6b4a12), cCl = new THREE.Color(0x0aa3ff); DP.forEach((d, k) => drops.setColorAt(k, PATHS[d.pi].kind === "raw" ? cRaw : cCl));
-// burbujas
-const NB = 700; const bub = new THREE.InstancedMesh(new THREE.SphereGeometry(.09, 6, 5), new THREE.MeshStandardMaterial({ color: 0xffffff, transparent: true, opacity: .85 }), NB); bub.frustumCulled = false; P.add(bub);
-const BB = []; for (let k = 0; k < NB; k++) { const ecu = k < 140; const ri = k % 5; BB.push({ ecu, ri, x: ecu ? ex + (Math.random() - .5) * 4.4 : -9 + Math.random() * 18 * .6, z: ecu ? ez + (Math.random() - .5) * 9 : RZ[ri] + (Math.random() - .5) * 3.2, y: Math.random() * 2.2, s: .6 + Math.random() * .9 }); }
-// marcador del recorrido
-const ring = new THREE.Mesh(new THREE.RingGeometry(.94, 1, 64), new THREE.MeshBasicMaterial({ color: 0x3fd6c6, side: THREE.DoubleSide, transparent: true, opacity: .9, depthWrite: false })); ring.rotation.x = -Math.PI / 2; ring.visible = false; P.add(ring);
-const arrow = new THREE.Mesh(new THREE.ConeGeometry(.9, 1.8, 4), new THREE.MeshBasicMaterial({ color: 0x3fd6c6 })); arrow.rotation.x = Math.PI; arrow.visible = false; P.add(arrow);
-// ---------- HMI
-const STN = [
- { id: "peas", nm: "PEAS", c: [21, 1, 11], r: 5, cam: [33, 14, 24] },
- { id: "ecu", nm: "ECUALIZADOR", c: [16, 1.5, -3], r: 6.5, cam: [30, 16, 8] },
- { id: "rea", nm: "REACTORES", c: [0, 1.5, 0], r: 13, cam: [10, 26, 30] },
- { id: "tk", nm: "TK ACUMUL.", c: [-21, 2, 0], r: 11, cam: [-8, 22, 30] },
- { id: "cach", nm: "CACHIMBA", c: [-34, 1, 14.5], r: 5, cam: [-24, 12, 28] },
- { id: "tg", nm: "TABLERO / PLC", c: [12.5, 1, -14], r: 3, cam: [22, 10, -26] }];
-$("nav").innerHTML = STN.map((s, i) => `<button data-i="${i}">${s.nm}</button>`).join("");
-$("eq").innerHTML = EQ.map((e, i) => `<i id="e${i}" title="${e.desc}">${e.tag.replace("_", " ").replace("_", " ")}</i>`).join("");
-const log = []; function L(t) { const d = new Date(); log.unshift(d.toTimeString().slice(0, 8) + "  " + t); log.length = 5; $("log").innerHTML = log.join("<br>"); }
-let run = false, starting = false, timers = [];
-function setEq(e, on) { e.on = on; const i = EQ.indexOf(e); e.lamp.material.color.set(on ? 0x22ff55 : 0x8a1010); e.lamp.material.emissive.set(on ? 0x11aa33 : 0x300000); $("e" + i).className = on ? "on" : e.sb ? "sb" : ""; }
-EQ.forEach(e => setEq(e, false));
-function status() { const st = $("st"); st.className = "st" + (run ? " on" : starting ? " seq" : ""); st.textContent = run ? "PLANTA EN MARCHA · AUTOMÁTICO" : starting ? "SECUENCIA DE ARRANQUE…" : "PLANTA DETENIDA"; }
-function start() {
-  if (run || starting) return; starting = true; status(); L("START: secuencia de arranque desde HMI");
-  const seq = [["peas", "PEAS: bomba BBA-001 en servicio, BBA-002 en alternancia"], ["ecu", "Ecualizador: sopladores SO-601/602 y bombas BBA-003…007"], ["rea", "Reactores 1 a 5: sopladores A, dosificadoras y extractores"], ["tk", "TK acumuladores recibiendo agua tratada"], ["cach", "Cachimba: BC-101 impulsando agua de reúso"]];
-  seq.forEach(([st, t], k) => timers.push(setTimeout(() => { EQ.filter(e => e.st === st && !e.sb).forEach(e => setEq(e, true)); active.add(st); L(t); if (k === seq.length - 1) { run = true; starting = false; status(); L("Planta en régimen: Q ≈ 10 m³/h (240 m³/d)"); } }, 900 + k * 1300)));
+function anyReactorValve() { for (var n = 1; n <= 5; n++) if (T["XV-REACTOR-30" + n]) return true; return false; }
+// sopladores del ecualizador (equipo gris entre ecualizador y PEAS)
+blower(EX - 1.4, -0.4, "BBA-ECU-AIR-001", 0, 0.8, "RELE-Termico-BB1-AIR-Ecu");
+blower(EX + 1.6, -0.4, "BBA-ECU-AIR-002", 0, 0.8, "RELE-Termico-BB2-AIR-Ecu");
+var air1 = pipe([[EX - 1.04, 1.05, -0.4], [EX - 1.04, 1.4, -0.4], [EX + 0.2, 1.4, -0.4]], 0.08, M(0x2b6cb0));
+var air2 = pipe([[EX + 1.96, 1.05, -0.4], [EX + 1.96, 1.4, -0.4], [EX + 0.2, 1.4, -0.4]], 0.08, M(0x2b6cb0));
+var airM = pipe([[EX + 0.2, 1.4, -0.4], [EX + 0.2, 3.6, -0.4], [EX + 0.2, 3.6, -1.6], [EX + 0.9, 3.6, -1.6], [EX + 0.9, 0.35, -1.6], [EX + 0.9, 0.35, EZ - 3.8]], 0.08, M(0x2b6cb0));
+valve(EX + 0.2, 2.3, -0.4, "XV-ECU-AIR-202");
+transmitter(EX + 0.7, 3.2, -0.4, "PIC-ECU-AIR", "bar", 2);
+flow(air1, function () { return T["BBA-ECU-AIR-001"]; }, 0xffffff, 0, 3);
+flow(air2, function () { return T["BBA-ECU-AIR-002"]; }, 0xffffff, 0, 3);
+flow(airM, function () { return T["XV-ECU-AIR-202"]; }, 0xffffff, 0, 3);
+function tankElectrode(x, z, y, tag) {
+  add(cyl(0.02, 0.02, EH + 0.4 - y, DARK, 6), x, (EH + 0.4 + y) / 2, z);
+  var tip = sph(0.09, IDLE); add(tip, x, y, z); lamps.push({ m: tip, cond: function () { return T[tag]; }, onMat: M(0xfacc15, { emissive: 0xeab308, emissiveIntensity: 1 }) });
+  add(label(tag, { h: 0.3 }), x, EH + 0.8, z); pick(tip, { kind: "sensor", tag: tag }); reg(tag, tip);
 }
-function stop() { timers.forEach(clearTimeout); timers = []; run = starting = false; active.clear(); EQ.forEach(e => setEq(e, false)); status(); L("STOP: parada de todos los equipos"); }
-const active = new Set();
-$("bStart").onclick = start; $("bStop").onclick = () => { endTour(); stop(); };
-// ---------- recorrido
-const TOUR = [
- { s: 0, h: "PEAS: llegada de aguas servidas", p: "El agua servida del campamento llega por gravedad a la planta elevadora (PEAS), un estanque semienterrado.", l: ["Bombas sumergibles BBA-001 y BBA-002 en alternancia", "Partida y parada por nivel LSH/LSL-101", "FIT-101 mide el caudal de entrada"] },
- { s: 1, h: "Ecualizador: caudal y carga parejos", p: "El ecualizador amortigua las puntas de caudal para alimentar los reactores de forma constante.", l: ["Sopladores SO-601/602 mezclan y evitan malos olores", "BBA-003 a 007 alimentan un reactor cada una", "Nivel LSH/LSL-151 protege las bombas"] },
- { s: 2, h: "Reactores 1 a 5: lodos activados", p: "Las bacterias degradan la materia orgánica con el aire de los sopladores; luego el agua sedimenta y se desinfecta.", l: ["Sopladores SO-A/SO-B por reactor, uno de respaldo", "Dosificadoras BD-A/B inyectan hipoclorito", "Extractor EX ventila cada módulo"] },
- { s: 3, h: "TK acumuladores: agua tratada", p: "El agua clarificada y desinfectada se almacena en los cinco estanques acumuladores.", l: ["Tiempo de contacto para el cloro", "Reserva para humectación de caminos", "Rebalse controlado hacia la cachimba"] },
- { s: 4, h: "Cachimba: impulsión para reúso", p: "Las bombas centrífugas cargan los camiones aljibe con agua tratada para humectar caminos.", l: ["BC-101 y BC-102 en alternancia", "FIT-401 mide el caudal de salida", "Cerca del 80 % del agua se reutiliza"] },
- { s: 5, h: "Tablero general y control", p: "El TG-PTAS alimenta los tableros de fuerza y control. Un PLC S7-1200 con cuatro ET 200SP en red PROFINET comanda la planta.", l: ["CPU 1214C · switch SCALANCE XB005", "SCADA WinCC y estación de ingeniería", "Transformador 300 kVA, 23/0,4 kV"] }];
-let ti = -1, tT = 0, tourOn = false; const TD = 9;
-function showStep(i) { ti = (i + TOUR.length) % TOUR.length; tT = 0; const t = TOUR[ti], s = STN[t.s]; $("tN").textContent = `Recorrido · estación ${ti + 1} de ${TOUR.length}`; $("tH").textContent = t.h; $("tP").textContent = t.p; $("tL").innerHTML = t.l.map(x => `<li>${x}</li>`).join(""); focus(s); }
-function focus(s) { ring.visible = arrow.visible = true; ring.position.set(s.c[0], .25, s.c[2]); ring.scale.setScalar(s.r); const ay = s.c[1] + Math.min(7.5, 3 + s.r * .45); arrow.position.set(s.c[0], ay, s.c[2]); arrow.userData.y = ay; if (!xr && !camMode) fly(s.cam, s.c, s.r); }
-function tour() { tourOn = true; $("tour").classList.add("show"); if (!run && !starting) start(); L("INICIO: recorrido guiado por estaciones"); showStep(0); }
-function endTour() { if (!tourOn) return; tourOn = false; $("tour").classList.remove("show"); ring.visible = arrow.visible = false; if (!xr && !camMode) fly(...HOME); }
-$("bTour").onclick = tour; $("tNext").onclick = () => showStep(ti + 1); $("tPrev").onclick = () => showStep(ti - 1); $("tEnd").onclick = endTour;
-$("nav").onclick = e => { const b = e.target.closest("button"); if (!b) return; endTour(); focus(STN[+b.dataset.i]); };
-$("bFold").onclick = () => { $("hmi").classList.toggle("fold"); $("bFold").textContent = $("hmi").classList.contains("fold") ? "▴" : "▾"; resize(); };
-let fl = null; const HOME = [[30, 34, 46], [-2, 0, 0]];
-function kAsp() { return Math.max(1, 1.0 / cam.aspect); }
-function fly(p, t, r = 30) { const tb = new THREE.Vector3(...t), b = new THREE.Vector3(...p).sub(tb).multiplyScalar(r > 20 ? kAsp() : Math.sqrt(kAsp())).add(tb); fl = { a: cam.position.clone(), b, ta: ctl.target.clone(), tb, k: 0 }; }
-function msg(t, ms = 6000) { const m = $("msg"); m.textContent = t; m.classList.add("show"); clearTimeout(msg.h); msg.h = setTimeout(() => m.classList.remove("show"), ms); }
-// ---------- realidad aumentada
-let xr = null, camMode = false, hitSrc = null, placed = false; const reticle = new THREE.Mesh(new THREE.RingGeometry(.08, .1, 32).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0x3fd6c6 })); reticle.matrixAutoUpdate = false; reticle.visible = false; S.add(reticle);
-const inFrame = (() => { try { return window.top !== window.self; } catch { return true; } })();
-async function ar() {
-  if (navigator.xr && await navigator.xr.isSessionSupported("immersive-ar").catch(() => false)) {
-    try {
-      const s = await navigator.xr.requestSession("immersive-ar", { requiredFeatures: ["hit-test"], optionalFeatures: ["dom-overlay"], domOverlay: { root: $("ui") } });
-      xr = s; R.xr.enabled = true; R.xr.setReferenceSpaceType("local"); await R.xr.setSession(s); S.background = null; R.shadowMap.enabled = false;
-      P.scale.setScalar(.02); P.visible = false; placed = false; $("exitAR").style.display = "block";
-      const vs = await s.requestReferenceSpace("viewer"); hitSrc = await s.requestHitTestSource({ space: vs });
-      $("ui").addEventListener("beforexrselect", e => e.preventDefault());
-      s.addEventListener("select", () => { if (reticle.visible) { P.position.setFromMatrixPosition(reticle.matrix); P.visible = true; placed = true; msg("Planta ubicada. Usa START, STOP o INICIO en el HMI.", 4000); } });
-      s.addEventListener("end", () => { xr = null; hitSrc = null; R.xr.enabled = false; S.background = SKY; R.shadowMap.enabled = true; P.scale.setScalar(1); P.position.set(0, 0, 0); P.visible = true; reticle.visible = false; $("exitAR").style.display = "none"; resize(); });
-      msg("Mueve el teléfono apuntando al piso o a una mesa y toca la pantalla para ubicar la planta."); return;
-    } catch (e) { }
-  }
-  if (!inFrame && navigator.mediaDevices?.getUserMedia) {
-    try { const st = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }, audio: false }); const v = $("cam"); v.srcObject = st; v.style.display = "block"; camMode = true; S.background = null; $("exitAR").style.display = "block"; fly(...HOME); msg("Modo cámara: la planta se superpone a lo que ves. Arrastra para girarla, pellizca para acercar."); return; } catch (e) { msg("No se pudo abrir la cámara: revisa el permiso del navegador."); return; }
-  }
-  msg("Aquí la página corre dentro de un marco que no permite usar la cámara: se muestra en 3D. Para la RA, abre la versión publicada en tu propio sitio desde el teléfono, escaneando el QR.", 9000);
-}
-$("bAR").onclick = ar;
-$("exitAR").onclick = () => { if (xr) xr.end(); if (camMode) { const v = $("cam"); v.srcObject?.getTracks().forEach(t => t.stop()); v.style.display = "none"; camMode = false; S.background = SKY; $("exitAR").style.display = "none"; } };
-// ---------- bucle
-function resize() { const w = innerWidth, h = innerHeight; R.setSize(w, h, false); cam.aspect = w / h; const hm = $("hmi"); if (w <= 900 && !xr) { const off = Math.round(Math.min(hm.offsetHeight, h * .5) / 2); cam.setViewOffset(w, h, 0, off, w, h); } else cam.clearViewOffset(); cam.updateProjectionMatrix(); }
-addEventListener("resize", resize); if (innerWidth <= 900) { $("hmi").classList.add("fold"); $("bFold").textContent = "▴"; } resize();
-{ const tb = new THREE.Vector3(...HOME[1]); cam.position.set(...HOME[0]).sub(tb).multiplyScalar(kAsp()).add(tb); ctl.target.copy(tb); }
-const clk = new THREE.Clock(); const dm = new THREE.Object3D(); let flowT = 0, q1 = 0;
-R.setAnimationLoop((ts, frame) => {
-  const dt = Math.min(clk.getDelta(), .05), t = clk.elapsedTime;
-  if (frame && hitSrc && !placed) { const hs = frame.getHitTestResults(hitSrc); if (hs.length) { const pose = hs[0].getPose(R.xr.getReferenceSpace()); reticle.visible = true; reticle.matrix.fromArray(pose.transform.matrix); } else reticle.visible = false; } else if (placed) reticle.visible = false;
-  if (fl) { fl.k = Math.min(1, fl.k + dt / 1.6); const e = fl.k < .5 ? 2 * fl.k * fl.k : 1 - (-2 * fl.k + 2) ** 2 / 2; cam.position.lerpVectors(fl.a, fl.b, e); ctl.target.lerpVectors(fl.ta, fl.tb, e); if (fl.k >= 1) fl = null; }
-  if (!xr) ctl.update();
-  EQ.forEach(e => { if (e.on) e.rot.rotation.x += dt * 14; });
-  if (active.size) flowT += dt * 3.2;
-  DP.forEach((d, k) => { const p = PATHS[d.pi]; const on = active.has(p.st); if (on) dm.position.copy(at(p, d.o + flowT)); else dm.position.set(0, -50, 0); dm.scale.setScalar(on ? 1 : 0); dm.updateMatrix(); drops.setMatrixAt(k, dm.matrix); });
-  drops.instanceMatrix.needsUpdate = true;
-  BB.forEach((b, k) => { const on = b.ecu ? active.has("ecu") : active.has("rea"); if (on) { b.y += dt * b.s * 1.4; if (b.y > 2.25) b.y = .15; dm.position.set(b.x + Math.sin(t * 3 + k) * .05, b.y, b.z); dm.scale.setScalar(1); } else { dm.position.set(0, -50, 0); dm.scale.setScalar(0); } dm.updateMatrix(); bub.setMatrixAt(k, dm.matrix); });
-  bub.instanceMatrix.needsUpdate = true;
-  RW.forEach((w, k) => { w.o.position.y = w.base + (active.has("rea") ? Math.sin(t * 2.4 + k) * .03 : 0); });
-  ecuW.position.y = 2.2 + (active.has("ecu") ? Math.sin(t * 2) * .04 : 0);
-  if (ring.visible) { ring.scale.setScalar(STN[TOUR[Math.max(ti, 0)]?.s ?? 0].r * (1 + Math.sin(t * 4) * .04)); arrow.position.y = arrow.userData.y + Math.sin(t * 3) * .4; arrow.rotation.y += dt; }
-  if (tourOn) { tT += dt; $("tBar").style.width = Math.min(100, tT / TD * 100) + "%"; if (tT >= TD) showStep(ti + 1); }
-  // lecturas simuladas
-  const tgt = run ? 10 + Math.sin(t * .4) * .6 : starting ? 4 : 0; q1 += (tgt - q1) * dt * .8;
-  if (Math.floor(t * 4) !== Math.floor((t - dt) * 4)) {
-    const f = v => v.toFixed(1).replace(".", ",");
-    $("vQ1").textContent = f(q1) + " m³/h"; $("vQ4").textContent = f(active.has("cach") ? q1 * .8 : 0) + " m³/h";
-    $("vL1").textContent = Math.round(run ? 48 + Math.sin(t * .3) * 8 : 62) + " %"; $("vL2").textContent = Math.round(run ? 60 + Math.sin(t * .2) * 6 : 55) + " %";
-    $("vOD").textContent = f(active.has("rea") ? 2.1 + Math.sin(t * .5) * .3 : 0) + " mg/L"; $("vCl").textContent = f(active.has("tk") ? .8 + Math.sin(t * .35) * .1 : 0) + " mg/L";
-    const d = new Date(); $("clk").innerHTML = d.toLocaleDateString("es-CL") + "<br>" + d.toLocaleTimeString("es-CL");
-  }
-  R.render(S, cam);
+tankElectrode(EX + 2.5, EZ + 3.9, 0.25 + 0.85 * (EH - 0.3), "LSH-ECU");
+tankElectrode(EX + 2.5, EZ + 3.2, 0.25 + 0.20 * (EH - 0.3), "LSL-ECU");
+reg("Power-Ecu", cabinet(EX - 3.6, -0.6, "T.D.F.yC Ecualización", "ecu", ["Power-Ecu"], 0)); reg("Habilita-BBA-ECU", TAGOBJ["BBA-ECU-05"]);
+
+// ---------- línea del ecualizador a reactores (tubería ocre) ----------
+var RZ = [-9.6, -5.4, -1.2, 3.0, 7.2], RX0 = 1, RX1 = 19, RW = 3.0, RHB = 3.0, RDIV = 6;
+var ecuMan = pipe([[EX - 3.5, 3.7, EZ - 3.6], [EX - 3.5, 3.7, EZ + 3.6], [EX - 3.5, 3.7, -0.9]], 0.16, M(0xc2a25a));
+var header = pipe([[EX - 3.5, 3.7, -0.9], [21.4, 3.7, -0.9], [21.4, 3.7, RZ[0]], [21.4, 3.7, RZ[4]]], 0.18, M(0xc2a25a));
+flow(ecuMan, function () { return T["Habilita-BBA-ECU"] && anyReactorValve(); });
+flow(header, function () { return T["Habilita-BBA-ECU"] && anyReactorValve(); });
+transmitter(27, 3.8, -0.9, "Flujo-Ecu", "m³/h", 0); reg("Fluido-1", TAGOBJ["Flujo-Ecu"]);
+
+// ---------- REACTORES: 5 piscinas rectangulares con compartimentos ----------
+var reWater = [], reMark = [], RH = RHB;
+var CLARIF = new THREE.MeshStandardMaterial({ color: 0x8fb9a8, transparent: true, opacity: 0.85, roughness: 0.2 });
+var AER = new THREE.MeshStandardMaterial({ color: 0x8a6f3c, transparent: true, opacity: 0.9, roughness: 0.35 });
+var RCONC = M(0x9aa4ad);
+RZ.forEach(function (z, i) {
+  var n = i + 1, L = RX1 - RX0, cx = (RX0 + RX1) / 2;
+  add(box(L, RHB, 0.25, RCONC), cx, RHB / 2, z - RW / 2); add(box(L, RHB, 0.25, RCONC), cx, RHB / 2, z + RW / 2);
+  add(box(0.25, RHB, RW, RCONC), RX0, RHB / 2, z); add(box(0.25, RHB, RW, RCONC), RX1, RHB / 2, z);
+  add(box(0.2, RHB - 0.2, RW, RCONC), RX0 + RDIV, (RHB - 0.2) / 2, z); add(box(0.2, RHB - 0.2, RW, RCONC), RX0 + RDIV + 4.5, (RHB - 0.2) / 2, z);
+  var wa = add(box(L - RDIV - 0.4, 1, RW - 0.3, AER), RX0 + RDIV + (L - RDIV) / 2, 0, z);
+  var wc = add(box(RDIV - 0.3, 1, RW - 0.3, CLARIF), RX0 + RDIV / 2, 0, z);
+  reWater.push([wa, wc]);
+  // baranda amarilla y tubería azul de aire
+  [z - RW / 2 + 0.12, z + RW / 2 - 0.12].forEach(function (zz) {
+    pipe([[RX0 + RDIV, RHB + 0.75, zz], [RX1, RHB + 0.75, zz]], 0.035, YEL);
+    for (var k = 0; k <= 6; k++) add(cyl(0.03, 0.03, 0.75, YEL, 6), RX0 + RDIV + k * (L - RDIV) / 6, RHB + 0.38, zz);
+  });
+  reMark.push(add(label("Reactor " + n, { h: 0.5 }), RX1 - 1.5, RHB + 2.0, z));
+  add(liveLabel(function () { return "LIC " + Math.round(T["Nivel-Reactor-" + n]) + " %  Cl " + fmt(T["Cloro-Reactor-0" + n], 1) + " mg/L"; }, { h: 0.4 }), RX1 - 6, RHB + 1.4, z);
+  // entrada con XV-REACTOR-30n (rojo)
+  var drop = pipe([[21.4, 3.7, z], [RX1 - 0.4, 3.7, z], [RX1 - 0.4, 2.6, z]], 0.12, M(0xc2a25a));
+  valve(20.4, 3.7, z, "XV-REACTOR-30" + n);
+  flow(drop, function () { return T["XV-REACTOR-30" + n] && T["Habilita-BBA-ECU"]; }, 0x7fdcff, 8);
+  bubbleField(RX0 + RDIV + (L - RDIV) / 2, z, L - RDIV - 1, RW - 0.8, 0.3, function () { return 0.2 + T["Nivel-Reactor-" + n] / 100 * (RHB - 0.3); },
+    function () { return T[rn(n, "BBA-REACTOR-AIR-01")] || T[rn(n, "BBA-REACTOR-AIR-02")]; });
+  // sopladores del reactor y tubería azul de aire sobre la piscina
+  blower(23.6, z - 0.75, rn(n, "BBA-REACTOR-AIR-01"), 0, 0.5, "RELE-Termico-BB1-AIR-Reactor" + n);
+  blower(23.6, z + 0.75, rn(n, "BBA-REACTOR-AIR-02"), 0, 0.5, "RELE-Termico-BB2-AIR-Reactor" + n);
+  var ap = pipe([[23.8, 0.85, z - 0.75], [23.8, 0.85, z], [22.6, 0.85, z], [22.6, RHB + 0.35, z + 0.35], [RX0 + RDIV + 0.3, RHB + 0.35, z + 0.35], [RX0 + RDIV + 0.3, 0.4, z + 0.35]], 0.07, M(0x2b6cb0));
+  pipe([[23.8, 0.85, z + 0.75], [23.8, 0.85, z]], 0.07, M(0x2b6cb0));
+  for (var k = 1; k <= 4; k++) add(cyl(0.05, 0.05, RHB - 0.2, M(0x2b6cb0), 8), RX0 + RDIV + k * (L - RDIV) / 5, RHB / 2 + 0.2, z + 0.35);
+  flow(ap, function () { return T[rn(n, "BBA-REACTOR-AIR-01")] || T[rn(n, "BBA-REACTOR-AIR-02")]; }, 0xffffff, 0, 3);
+  transmitter(RX1 - 3, RHB, z - RW / 2 + 0.4, "PIC-Reactor-" + n, "bar", 2);
+  // clorador en el pasillo entre piscinas
+  var cg = new THREE.Group(); cg.position.set(RX0 + RDIV + 2.2, 0, z + 2.1); scene.add(cg);
+  add(cyl(0.3, 0.3, 0.9, M(0xf3f4f6)), 0, 0.55, 0, cg);
+  [-0.6, 0.6].forEach(function (dx, j) {
+    var tg = rn(n, "BBA-Cloro-" + (j + 1));
+    add(box(0.34, 0.3, 0.28, M(0xfacc15)), dx, 0.3, 0, cg);
+    var dh = add(cyl(0.09, 0.09, 0.06, DARK), dx, 0.3, 0.16, cg); dh.rotation.x = Math.PI / 2; spinners.push({ m: dh, cond: function () { return T[tg]; }, ax: "y" });
+    lamp(dx, 0.55, 0, function () { return T[tg]; }, cg, 0.06);
+    reg(tg, cg);
+  });
+  add(label(rn(n, "BBA-Cloro-1/2"), { h: 0.28 }), 0, 1.4, 0, cg);
+  pick(cg, { kind: "dosificadora", tag: rn(n, "BBA-Cloro-1") });
+  var cl = pipe([[RX0 + RDIV + 2.2, 0.45, z + 2.1], [RX0 + RDIV + 2.2, RHB + 0.2, z + 2.1], [RX0 + RDIV + 2.2, RHB + 0.2, z + 0.9], [RX0 + RDIV + 2.2, RHB - 0.5, z + 0.9]], 0.035, M(0xfacc15));
+  flow(cl, function () { return T[rn(n, "BBA-Cloro-1")] || T[rn(n, "BBA-Cloro-2")]; }, 0xfde047, 10, 1.4);
+  transmitter(RX0 + RDIV - 1.2, RHB, z - RW / 2 + 0.4, "Cloro-Reactor-0" + n, "mg/L", 2);
 });
-status(); L("HMI listo · planta en espera"); msg("Gira con un dedo, acerca con dos. START arranca la planta, STOP la detiene, INICIO hace el recorrido.", 7000);
+stationLabel("REACTORES", (RX0 + RX1) / 2, RHB + 5.6, -1.2);
+for (var q = 1; q <= 5; q++) { reg("Nivel-Reactor-" + q, reMark[q - 1]); reg("Dosifica-R" + q, TAGOBJ[rn(q, "BBA-Cloro-1")]); }
+
+// ---------- TK ACUMULADORES: 5 estanques horizontales blancos ----------
+var AXC = -8.5, AL = 11, AR = 1.5, AY = 1.75, acTanks = [];
+RZ.forEach(function (z, i) {
+  var n = i + 1;
+  var tk = hTank(AXC, AY, z, AL, AR, "x", CLEAN); acTanks.push(tk); pick(tk.g, { kind: "estanque", tag: "Nivel-ACU-" + n }); reg("Nivel-ACU-" + n, tk.g);
+  add(liveLabel(function () { return "TK " + n + "  Nivel " + Math.round(T["Nivel-ACU-" + n]) + " %"; }, { h: 0.42 }), AXC, AY + AR + 1.0, z);
+  // salida del reactor n (azul claro) con XV-TK-ACU-40n
+  var tp = pipe([[RX0 + 0.2, 2.4, z], [-1.2, 2.4, z], [-1.2, 3.9, z], [AXC + AL / 2 - 1.2, 3.9, z], [AXC + AL / 2 - 1.2, AY + AR - 0.1, z]], 0.12, M(0x4fb3e8));
+  valve(-1.2, 3.1, z, "XV-TK-ACU-40" + n);
+  flow(tp, function () { return T["XV-TK-ACU-40" + n]; }, 0xbfe9ff, 8);
+  reg("Habilita-xv-40" + n, TAGOBJ["XV-TK-ACU-40" + n]);
+  [["LSH-ACUMULADOR-" + n, AY - AR + 0.1 + 0.9 * (2 * AR - 0.2)], ["LSL-ACUMULADOR-" + n, AY - AR + 0.1 + 0.15 * (2 * AR - 0.2)]].forEach(function (s) {
+    var m = sph(0.11, IDLE); add(m, AXC + AL / 2 + 0.55, s[1], z + 0.5);
+    lamps.push({ m: m, cond: function () { return T[s[0]]; }, onMat: M(0xfacc15, { emissive: 0xeab308, emissiveIntensity: 1 }) });
+    pick(m, { kind: "sensor", tag: s[0] }); reg(s[0], m);
+  });
+  var sp = pipe([[AXC - AL / 2 - 0.3, 0.5, z], [-16.0, 0.5, z]], 0.11, M(0x4fb3e8));
+  flow(sp, function () { return T["XV-Cachimba"]; }, 0xbfe9ff, 4);
+});
+stationLabel("TK - ACUMULADOR", AXC, AY + AR + 3.2, -1.2);
+
+// ---------- AGUA TRATADA / CACHIMBA ----------
+var suct = pipe([[-16, 0.5, RZ[0]], [-16, 0.5, 9.6], [-17.2, 0.5, 9.6]], 0.16, M(0x4fb3e8));
+flow(suct, function () { return T["XV-Cachimba"]; }, 0xbfe9ff);
+centrifugal(-18.4, 8.6, "AGUA-TRATADA-CENTRIFUGA-1", "RELE-Termico-BB1-Centrifuga");
+centrifugal(-18.4, 10.6, "AGUA-TRATADA-CENTRIFUGA-2", "RELE-Termico-BB2-Centrifuga");
+pipe([[-17.2, 0.5, 9.6], [-17.2, 0.5, 8.6], [-17.6, 0.55, 8.6]], 0.11, M(0x4fb3e8)); pipe([[-17.2, 0.5, 9.6], [-17.2, 0.5, 10.6], [-17.6, 0.55, 10.6]], 0.11, M(0x4fb3e8));
+var dis = pipe([[-19.3, 0.9, 8.6], [-20.0, 0.9, 8.6], [-20.0, 0.9, 9.6], [-26.0, 0.9, 9.6], [-26.0, 5.6, 9.6], [-29.0, 5.6, 9.6], [-29.0, 4.2, 9.6]], 0.14, M(0x4fb3e8));
+pipe([[-19.3, 0.9, 10.6], [-20.0, 0.9, 10.6], [-20.0, 0.9, 9.6]], 0.14, M(0x4fb3e8));
+valve(-23.0, 0.9, 9.6, "XV-Cachimba");
+flow(dis, function () { return T["XV-Cachimba"]; }, 0xbfe9ff);
+add(box(0.45, 5.8, 0.45, M(0x6b7280)), -26.0, 2.9, 10.2);
+stationLabel("CACHIMBA", -27, 7.8, 9.6);
+var spout = pipe([[-29.0, 4.2, 9.6], [-29.0, 2.6, 9.6]], 0.001); flow(spout, function () { return T["XV-Cachimba"]; }, 0xbfe9ff, 12, 5);
+reg("Power-AT", cabinet(-16.6, 12.6, "T.D.F.yC Agua Tratada", "at", ["Power-AT"], 0)); reg("Habilita-BBA-Centrifuga", TAGOBJ["AGUA-TRATADA-CENTRIFUGA-1"]);
+
+// ---------- tablero de control, TDG y red PROFINET ----------
+cabinet(RX1 + 6.4, 11.0, "Tablero de control PLC-1", "plc", ["POWER-ON", "Power-Ecu", "Power-R1", "Power-AT"], 0);
+cabinet(RX1 + 9.2, 11.0, "T.D.G. (HMI-1 TP1200)", "tdg", ["POWER-ON", "Power-Ecu", "Power-R1", "Power-AT"], 0);
+[[44.5, 1.2], [EX - 3.6, -0.6], [26.6, RZ[2]], [-16.6, 12.6]].forEach(function (p) {
+  var pp = pipe([[RX1 + 6.4, 0.07, 10.6], [RX1 + 6.4, 0.07, 14.2], [p[0], 0.07, 14.2], [p[0], 0.07, p[1] + 0.4]], 0.05, M(0x16a34a));
+  flow(pp, function () { return true; }, 0x86efac, 0, 6);
+});
+add(label("Red PROFINET PN/IE-1", { h: 0.38, bg: "rgba(22,163,74,0.9)" }), 10, 0.6, 14.2);
+
+// ===================== DESIERTO, CAMINO, SUBESTACIÓN, ALIMENTADOR Y CAMIONES =====================
+// cerros del desierto (lejanos, como en la foto)
+(function desert() {
+  var hillMat = [M(0x8f7d69, { flatShading: true }), M(0x9c8b76, { flatShading: true }), M(0x7f7266, { flatShading: true })];
+  for (var i = 0; i < 26; i++) {
+    var a = i / 26 * Math.PI * 2 + Math.random() * 0.2, r = 190 + Math.random() * 60;
+    var h = 12 + Math.random() * 26, w = 40 + Math.random() * 50;
+    var hill = new THREE.Mesh(new THREE.ConeGeometry(w, h, 7, 1), hillMat[i % 3]);
+    hill.scale.z = 0.5 + Math.random() * 0.6; hill.rotation.y = Math.random() * 3;
+    add(hill, Math.cos(a) * r, h / 2 - 1, Math.sin(a) * r);
+  }
+  var rockMat = M(0xa58f72, { flatShading: true });
+  for (var k = 0; k < 90; k++) {
+    var x = -90 + Math.random() * 180, z = -60 + Math.random() * 120;
+    if (x > -40 && x < 62 && z > -30 && z < 27) continue;
+    var rk = new THREE.Mesh(new THREE.DodecahedronGeometry(0.3 + Math.random() * 0.9, 0), rockMat);
+    rk.scale.y = 0.5; add(rk, x, 0.1, z);
+  }
+})();
+
+// camino de tierra perimetral (recorrido de los camiones aljibe)
+var ROAD = [[-29, -28], [-29, 9.6], [-29, 24], [58, 24], [58, -28], [-29, -28]];
+var ROADMAT = M(0xae9672, { roughness: 1 });
+(function road() {
+  for (var i = 0; i < ROAD.length - 1; i++) {
+    var a = ROAD[i], b = ROAD[i + 1], cx = (a[0] + b[0]) / 2, cz = (a[1] + b[1]) / 2;
+    var len = Math.hypot(b[0] - a[0], b[1] - a[1]) + 6, horiz = a[1] === b[1];
+    add(box(horiz ? len : 6, 0.04, horiz ? 6 : len, ROADMAT), cx, 0.025, cz);
+  }
+  add(label("Camino de riego (perímetro)", { h: 0.8, bg: "rgba(120,90,50,0.85)" }), 14, 1.2, 27.5);
+})();
+
+// ---------- SUBESTACIÓN AÉREA BIPOSTE 300 kVA (según foto de la memoria) ----------
+var SX = 72, SZ = -10;
+(function substation() {
+  add(box(10, 0.12, 10, M(0x9a948a)), SX, 0.06, SZ);                         // gravilla sobre malla 10x10
+  var fence = new THREE.MeshStandardMaterial({ color: 0x9aa3ab, transparent: true, opacity: 0.35, side: THREE.DoubleSide, depthWrite: false });
+  [[0, -4, 8, 0], [0, 4, 8, 0], [-4, 0, 0, 8], [4, 0, 0, 8]].forEach(function (f) {
+    add(box(f[2] || 0.04, 2.2, f[3] || 0.04, fence), SX + f[0], 1.1, SZ + f[1]);
+  });
+  for (var i = -4; i <= 4; i += 2) { [[i, -4], [i, 4], [-4, i], [4, i]].forEach(function (p) { add(cyl(0.04, 0.04, 2.3, STEEL, 6), SX + p[0], 1.15, SZ + p[1]); }); }
+  var POLE = M(0xb7b2a8);
+  [-1.5, 1.5].forEach(function (dx) { add(cyl(0.16, 0.24, 11.5, POLE, 12), SX + dx, 5.75, SZ); });
+  // crucetas y aisladores
+  add(box(4.6, 0.14, 0.14, M(0x8a8f94, { metalness: 0.5 })), SX, 10.7, SZ);
+  add(box(4.0, 0.14, 0.14, M(0x8a8f94, { metalness: 0.5 })), SX, 9.6, SZ + 0.15);
+  [-1.8, 0, 1.8].forEach(function (dx) {
+    add(cyl(0.07, 0.1, 0.35, M(0xdedede), 10), SX + dx, 10.95, SZ);                 // aislador
+    var co = add(cyl(0.06, 0.06, 0.7, M(0xc9c9c9), 8), SX + dx, 9.95, SZ + 0.15); co.rotation.z = 0.35;   // cut-out
+    add(cyl(0.07, 0.07, 0.5, M(0x6b6b6b), 8), SX + dx + 0.25, 9.3, SZ + 0.3);       // pararrayos
+  });
+  // plataforma y transformador
+  add(box(3.6, 0.16, 0.16, M(0x707a83, { metalness: 0.5 })), SX, 5.1, SZ - 0.45); add(box(3.6, 0.16, 0.16, M(0x707a83, { metalness: 0.5 })), SX, 5.1, SZ + 0.45);
+  var tr = add(box(1.3, 1.3, 0.95, M(0x9aa1a8, { metalness: 0.4, roughness: 0.5 })), SX, 5.85, SZ);
+  for (var f = -0.5; f <= 0.5; f += 0.12) add(box(0.05, 1.0, 0.25, M(0x8d949b)), SX + f, 5.8, SZ + 0.6);
+  [-0.4, 0, 0.4].forEach(function (dx) { add(cyl(0.05, 0.07, 0.35, M(0xe5e7eb)), SX + dx, 6.65, SZ); });
+  // bajadas MT de cut-out a bornes del transformador
+  [-1.8, 0, 1.8].forEach(function (dx, i) { pipe([[SX + dx, 9.6, SZ + 0.15], [SX + [-0.4, 0, 0.4][i], 6.85, SZ]], 0.015, DARK); });
+  add(label("S/E aérea 300 kVA 23/0,4 kV Dyn11", { h: 0.7 }), SX, 13.0, SZ);
+  stationLabel("SUBESTACIÓN", SX, 14.5, SZ);
+  // línea de media tensión que llega desde la red
+  [-1.8, 0, 1.8].forEach(function (dx) {
+    var ln = pipe([[SX + 40, 11.0, SZ - 30], [SX + dx, 11.05, SZ]], 0.02, DARK);
+    flow(ln, function () { return true; }, 0xffd400, 18, 8);
+  });
+  add(cyl(0.16, 0.24, 11.5, POLE, 12), SX + 40, 5.75, SZ - 30);
+  add(label("Red MT 23 kV", { h: 0.6, bg: "rgba(180,120,0,0.9)" }), SX + 22, 12.2, SZ - 15);
+  // cable BT bajando por el poste en conducto hasta el TP-BT
+  pipe([[SX - 1.25, 5.3, SZ + 0.2], [SX - 1.25, 0.4, SZ + 0.2], [SX - 3.0, 0.4, SZ + 1.6]], 0.08, M(0x4b5563));
+  add(box(0.25, 1.0, 0.25, M(0xdc2626)), SX - 0.8, 0.5, SZ + 3.0);           // poste de protección rojo
+})();
+// TP-BT al pie de la estructura (gabinete 800x600x300 IP65)
+var tpbt = new THREE.Group(); tpbt.position.set(SX - 3.4, 0, SZ + 1.6); scene.add(tpbt);
+add(box(1.2, 0.3, 0.8, CONC2), 0, 0.15, 0, tpbt);
+add(box(0.8, 1.9, 0.5, M(0xc7cbcf)), 0, 1.25, 0, tpbt);
+var tpLever = add(box(0.1, 0.32, 0.08, DARK), 0.1, 1.45, 0.3, tpbt);
+lamp(-0.22, 1.85, 0.27, function () { return T["Q-TPBT"]; }, tpbt, 0.06);
+add(label("TP-BT 4x400 A Ir 340 A", { h: 0.42 }), 0, 2.7, 0, tpbt);
+pick(tpbt, { kind: "tpbt", tag: "Q-TPBT" }); reg("Q-TPBT", tpbt);
+
+// ---------- TG-PTAS con equipo de medida ----------
+var TGX = 40, TGZ = 17.5;
+var tg = cabinet(TGX, TGZ, "TG-PTAS (Tablero General)", "tg", ["Tension-OK"], Math.PI);
+var tgLever = add(box(0.1, 0.32, 0.08, DARK), -0.2, 1.1, -0.34, tg);
+pick(tg, { kind: "tg", tag: "Q-General-TG" }); reg("Q-General-TG", tg); reg("Tension-OK", tg);
+var meter = liveLabel(function () {
+  if (!T["Q-TPBT"]) return "Medidor: sin tensión (TP-BT abierto)";
+  if (!T["Q-General-TG"]) return "Medidor sin registro (automático general abierto)";
+  return "Medidor " + Math.round(T["V-TG"]) + " V · " + Math.round(T["I-TG"]) + " A · " + fmt(T["P-TG"], 1) + " kW · " + Math.floor(T["kWh-TG"]).toLocaleString("es-CL") + " kWh";
+}, { h: 0.52 });
+add(meter, TGX, 3.9, TGZ); reg("kWh-TG", meter);
+
+// ---------- alimentador soterrado: 2 ductos PVC Ø110 en zanja 0,6 x 0,8 m con 3 cámaras ----------
+var XRAY = new THREE.MeshBasicMaterial({ color: 0x9ca3af, transparent: true, opacity: 0.55, depthTest: false });
+var XRAYON = new THREE.MeshBasicMaterial({ color: 0xf59e0b, transparent: true, opacity: 0.75, depthTest: false });
+var ducts = [];
+function buried(pts, cond, label2, speedFn) {
+  var P = pts.map(function (p) { return [p[0], -0.75, p[1]]; });
+  [-0.18, 0.18].forEach(function (o, k) {
+    var Q = P.map(function (p, i) {
+      var nx = 0, nz = 0, a = P[Math.max(0, i - 1)], b = P[Math.min(P.length - 1, i + 1)], dx = b[0] - a[0], dz = b[2] - a[2], l = Math.hypot(dx, dz) || 1;
+      nx = -dz / l; nz = dx / l; return [p[0] + nx * o, p[1], p[2] + nz * o];
+    });
+    var pp = pipe(Q, 0.07, XRAY); pp.group.children.forEach(function (m) { m.renderOrder = 5; });
+    ducts.push({ g: pp.group, cond: cond });
+    flow(pp, cond, 0xffb020, 0, 5);
+    var f = flows[flows.length - 1]; f.pts.material.depthTest = false; f.pts.material.size = 0.3; f.pts.renderOrder = 6; if (speedFn) f.speedFn = speedFn;
+  });
+  // marca de la zanja en el suelo (cinta de peligro bajo el terreno)
+  for (var i = 0; i < pts.length - 1; i++) {
+    var a = pts[i], b = pts[i + 1], len = Math.hypot(b[0] - a[0], b[1] - a[1]), horiz = Math.abs(b[1] - a[1]) < 0.01;
+    add(box(horiz ? len + 0.6 : 0.6, 0.02, horiz ? 0.6 : len + 0.6, M(0xc9b48f)), (a[0] + b[0]) / 2, 0.035, (a[1] + b[1]) / 2);
+  }
 }
+function camara(x, z, txt) {
+  add(box(0.9, 0.2, 0.9, CONC), x, 0.1, z); add(box(0.75, 0.04, 0.75, DARK), x, 0.22, z);
+  if (txt) add(label(txt, { h: 0.34 }), x, 0.9, z);
+}
+var FEED = [[SX - 3.4, SZ + 2.2], [SX - 3.4, 20.0], [TGX + 0.0, 20.0], [TGX, TGZ + 0.6]];
+buried(FEED, function () { return T["Q-TPBT"]; }, null, function () { return 0.6 + T["I-TG"] / 120; });
+camara(SX - 3.4, SZ + 3.2, "Cámara 1 (inicio)"); camara(SX - 3.4, 6.0, "Cámara 2 (intermedia)"); camara(TGX + 1.2, 20.0, "Cámara 3 (llegada TG)");
+add(label("Alimentador soterrado 150 m · 2 ternas RZ1-K 1x95 mm² · ducto PVC Ø110", { h: 0.45, bg: "rgba(180,110,0,0.9)" }), SX - 3.4, 1.5, 0);
+
+// ---------- tableros de reactores (uno por reactor) y subalimentadores desde el TG ----------
+var reactorBoards = [];
+RZ.forEach(function (z, i) {
+  var n = i + 1; var cb = cabinet(26.6, z, "T.D.F.yC Reactor " + n, "rea", ["Power-R" + n], Math.PI / 2);
+  reactorBoards.push(cb); reg("Power-R" + n, cb);
+});
+var SUBS = [
+  { name: "PEAS", to: [44.5 + 0.6, 1.2], area: "POWER-ON" },
+  { name: "Ecualización", to: [EX - 3.6, -0.0], area: "Power-Ecu" },
+  { name: "Agua Tratada", to: [-16.6, 13.2], area: "Power-AT" }
+];
+RZ.forEach(function (z, i) { SUBS.push({ name: "Reactor " + (i + 1), to: [27.2, z], area: "Power-R" + (i + 1) }); });
+SUBS.forEach(function (s, i) {
+  var y0 = TGZ - 0.6, lane = 15.0 - i * 0.35;
+  var pts = [[TGX - 0.4 + i * 0.12, y0], [TGX - 0.4 + i * 0.12, lane], [s.to[0], lane], [s.to[0], s.to[1]]];
+  if (s.name === "PEAS") pts = [[TGX + 0.4, y0], [TGX + 0.4, 14.6], [s.to[0], 14.6], [s.to[0], s.to[1]]];
+  if (s.name.indexOf("Reactor") === 0) pts = [[TGX - 0.4 + i * 0.12, y0], [TGX - 0.4 + i * 0.12, lane], [28.4 + i * 0.12, lane], [28.4 + i * 0.12, s.to[1]], [s.to[0], s.to[1]]];
+  buried(pts, function () { return T["Tension-OK"]; }, null, function () { return T[s.area] ? 1.3 : 0.45; });
+});
+
+// ---------- CAMIONES ALJIBE: cargan en la cachimba, riegan el camino y vuelven ----------
+var PATH = ROAD.map(function (p) { return new V(p[0], 0, p[1]); });
+var SEG = [], PLEN = 0;
+for (var si = 0; si < PATH.length - 1; si++) { var sl = PATH[si].distanceTo(PATH[si + 1]); SEG.push(sl); PLEN += sl; }
+var BAY_S = SEG[0];                       // posición de la cachimba sobre el recorrido
+var IRR_FROM = SEG[0] + SEG[1], IRR_TO = PLEN;   // tramos regados: superior, derecho e inferior
+function pathAt(s) {
+  s = ((s % PLEN) + PLEN) % PLEN; var i = 0; while (i < SEG.length - 1 && s > SEG[i]) { s -= SEG[i]; i++; }
+  var a = PATH[i], b = PATH[i + 1], t = s / SEG[i];
+  return { p: new V().lerpVectors(a, b, t), dir: new V().subVectors(b, a).normalize() };
+}
+function makeTruck(n) {
+  var g = new THREE.Group(); scene.add(g);
+  add(box(2.2, 0.5, 7.5, DARK), 0, 0.75, 0, g);
+  add(box(2.3, 1.9, 1.8, M(n === 1 ? 0xf8fafc : 0xfde68a)), 0, 1.9, 3.3, g);
+  add(box(2.32, 0.7, 0.05, M(0x93c5fd, { metalness: 0.6, roughness: 0.1 })), 0, 2.3, 4.2, g);
+  var tk = add(cyl(1.1, 1.1, 5.2, M(0xe2e8f0, { metalness: 0.5, roughness: 0.3 })), 0, 2.2, -0.9, g); tk.rotation.x = Math.PI / 2;
+  add(box(2.4, 0.12, 0.2, STEEL), 0, 0.85, -3.75, g);                         // barra de riego trasera
+  [[-1.05, 0.5, 3.0], [1.05, 0.5, 3.0], [-1.05, 0.5, -1.6], [1.05, 0.5, -1.6], [-1.05, 0.5, -3.0], [1.05, 0.5, -3.0]].forEach(function (p) {
+    var wh = add(cyl(0.5, 0.5, 0.35, DARK, 16), p[0], p[1], p[2], g); wh.rotation.z = Math.PI / 2;
+  });
+  // chorro de riego
+  var N = 70, geo = new THREE.BufferGeometry(), arr = new Float32Array(N * 3), seed = [];
+  for (var i = 0; i < N; i++) seed.push([Math.random() * 2 - 1, Math.random()]);
+  geo.setAttribute("position", new THREE.BufferAttribute(arr, 3));
+  var spray = new THREE.Points(geo, new THREE.PointsMaterial({ color: 0x9fd8ff, size: 0.18, transparent: true, opacity: 0.85 }));
+  scene.add(spray);
+  var tr = { n: n, g: g, s: n === 1 ? BAY_S - 0.5 : IRR_FROM + 30, level: n === 1 ? 10 : 80, state: n === 1 ? "a cargar" : "regando", wait: 0, spray: spray, sprayArr: arr, sprayGeo: geo, seed: seed, wetAcc: 0 };
+  var lb = liveLabel(function () { return "Camión " + n + " · " + Math.round(tr.level) + " % · " + tr.state; }, { h: 0.5 }); add(lb, 0, 4.2, -0.9, g);
+  pick(g, { kind: "camion", tag: "Camion-" + n, truck: tr }); reg("Camion-" + n, g);
+  return tr;
+}
+var trucks = [makeTruck(1), makeTruck(2)];
+// manchas de camino mojado que se secan
+var wet = [], WETMAT = new THREE.MeshStandardMaterial({ color: 0x6b5638, transparent: true, opacity: 0.45, roughness: 0.4, depthWrite: false });
+function wetMark(p, dir) {
+  var m = wet.length < 260 ? add(new THREE.Mesh(new THREE.PlaneGeometry(4.6, 1.6), WETMAT.clone()), 0, 0, 0) : wet.shift().m;
+  m.rotation.set(-Math.PI / 2, 0, Math.atan2(dir.x, dir.z)); m.position.set(p.x - dir.x * 4, 0.05, p.z - dir.z * 4); m.material.opacity = 0.5;
+  wet.push({ m: m, age: 0 });
+}
+function evTruck(tr, txt, on) { callout("Camion-" + tr.n, txt, on); if (window.UI && UI.note) UI.note(txt, on); }
+function updTrucks(dt) {
+  var speed = 6.5 * SPEED, occupied = trucks.some(function (t) { return t.state === "cargando" || t.state === "lleno"; });
+  T["Camion-Presente"] = false;
+  trucks.forEach(function (tr, k) {
+    var other = trucks[1 - k];
+    var gapAhead = ((other.s - tr.s) % PLEN + PLEN) % PLEN;
+    var mv = 0;
+    if (tr.state === "cargando") {
+      T["Camion-Presente"] = true; tr.level = T["Camion"];   // la planta llena el camión (FB13)
+      if (tr.level >= 100) { tr.state = "lleno"; tr.wait = 0; evTruck(tr, "■ Camión " + tr.n + " lleno → Camion-Lleno = 1, se corta el agua", false); }
+    } else if (tr.state === "lleno") {
+      T["Camion-Presente"] = true; tr.wait += dt;
+      if (tr.wait > 1.5) { tr.state = "a regar"; T["Camion"] = 0; }
+    } else {
+      var distBay = ((BAY_S - tr.s) % PLEN + PLEN) % PLEN;
+      var wantsLoad = tr.level < 95;
+      mv = speed * dt;
+      if (gapAhead < 11 && gapAhead > 0) mv = Math.min(mv, Math.max(0, gapAhead - 10));
+      if (wantsLoad && distBay < mv + 0.01) {
+        if (!occupied) { tr.s = BAY_S; mv = 0; tr.state = "cargando"; T["Camion"] = tr.level; evTruck(tr, "▶ Camión " + tr.n + " en la cachimba → Camion-Presente = 1, carga agua", true); }
+        else { mv = Math.max(0, distBay - 9); tr.state = "fila"; }
+      }
+      tr.s = (tr.s + mv) % PLEN;
+      var inIrr = tr.s > IRR_FROM && tr.s < IRR_TO;
+      if (inIrr && tr.level > 0) {
+        if (tr.state !== "regando") { tr.state = "regando"; evTruck(tr, "▶ Camión " + tr.n + " comienza a regar el camino", true); }
+        tr.level = Math.max(0, tr.level - mv * 100 / (IRR_TO - IRR_FROM) * 1.1);
+        if (tr.level <= 0) { tr.state = "sin agua → a cargar"; evTruck(tr, "■ Camión " + tr.n + " sin agua → vuelve a la cachimba", false); }
+        tr.wetAcc += mv; if (tr.wetAcc > 1.4) { tr.wetAcc = 0; var q = pathAt(tr.s); wetMark(q.p, q.dir); }
+      } else if (tr.state === "regando") tr.state = "a cargar";
+      else if (tr.state !== "fila" && tr.state !== "cargando" && tr.state !== "sin agua → a cargar" && tr.level < 95 && !inIrr) tr.state = "a cargar";
+    }
+    if (tr.state === "cargando") tr.level = T["Camion"];
+    var q = pathAt(tr.s); tr.g.position.copy(q.p); tr.g.rotation.y = Math.atan2(q.dir.x, q.dir.z);
+    // chorro
+    var spraying = tr.state === "regando" && mv > 0; tr.spray.visible = spraying;
+    if (spraying) {
+      for (var i = 0; i < tr.seed.length; i++) {
+        var sd = tr.seed[i]; sd[1] = (sd[1] + dt * 2.2) % 1; var back = 3.9 + sd[1] * 1.6, side = sd[0] * (1.2 + sd[1] * 1.8);
+        var ox = q.dir.x * -back + q.dir.z * side, oz = q.dir.z * -back - q.dir.x * side;
+        tr.sprayArr[i * 3] = q.p.x + ox; tr.sprayArr[i * 3 + 1] = 0.85 - sd[1] * sd[1] * 0.8; tr.sprayArr[i * 3 + 2] = q.p.z + oz;
+      }
+      tr.sprayGeo.attributes.position.needsUpdate = true;
+    }
+  });
+  wet.forEach(function (w) { w.age += dt * SPEED; w.m.material.opacity = Math.max(0, 0.5 - w.age / 90); });
+}
+// ductos: color naranja cuando llevan energía
+function updEnergy(dt) {
+  screens.forEach(function (m) { m.material = T["Tension-OK"] ? SCR_ON : SCR_OFF; });
+  ducts.forEach(function (d) { var on = d.cond(); d.g.children.forEach(function (m) { m.material = on ? XRAYON : XRAY; }); });
+  tpLever.position.y = T["Q-TPBT"] ? 1.55 : 1.35; tpLever.rotation.z = T["Q-TPBT"] ? 0 : 0.5;
+  tgLever.position.y = T["Q-General-TG"] ? 1.2 : 1.0; tgLever.rotation.z = T["Q-General-TG"] ? 0 : 0.5;
+}
+
+// ===================== animación de estados =====================
+function syncVisual(dt) {
+  setTankLevel(peasTank, T["Nivel-PEAS"]);
+  acTanks.forEach(function (t, i) { setTankLevel(t, T["Nivel-ACU-" + (i + 1)]); });
+  var eh = 0.05 + T["Nivel-ECU"] / 100 * (EH - 0.3); ecuWater.scale.y = eh; ecuWater.position.y = 0.05 + eh / 2;
+  reWater.forEach(function (w, i) { var h = 0.05 + T["Nivel-Reactor-" + (i + 1)] / 100 * (RHB - 0.3); w.forEach(function (m) { m.scale.y = h; m.position.y = 0.05 + h / 2; }); });
+  lamps.forEach(function (l) { var c = l.cond(); l.m.material = c ? (l.onMat || ON) : (l.offMat || (l.onMat ? IDLE : OFF)); });
+  valves.forEach(function (v) { v.act.material = T[v.tag] ? ON : OFF; });
+  spinners.forEach(function (s) { if (s.cond()) s.m.rotation[s.ax] += dt * 14 * Math.min(SPEED, 2); });
+  updFlows(dt); updBubbles(dt); updTrucks(dt); updEnergy(dt);
+  if (++frame % 6 === 0) liveLabels.forEach(drawLive);
+}
+var frame = 0;
+
+// ===================== cámara =====================
+var cam = { pos: new V(40, 36, 50), tgt: new V(6, 0, 0), path: null, t: 0, dur: 0 };
+function setCam() { camera.position.copy(cam.pos); camera.lookAt(cam.tgt); }
+var STATIONS = [
+  { name: "Vista general de la planta", pos: [40, 36, 50], tgt: [6, 0, 0], fb: null,
+    txt: "PTAS del campamento BLH Calama: PEAS enterrado, ecualizador, 5 reactores con cloración, 5 tanques acumuladores y cachimba. Control con PLC S7-1200 y 4 ET 200SP en PROFINET." },
+  { name: "Subestación aérea 300 kVA y TP-BT", pos: [SX - 14, 9, SZ + 16], tgt: [SX - 1, 4.5, SZ], fb: null, energy: true,
+    txt: "Biposte de hormigón con transformador 300 kVA 23/0,4 kV Dyn11, cut-out de 12 A y pararrayos. Al pie, el TP-BT con interruptor 4x400 A (Ir 340 A). Al cerrarlo, la energía baja por el alimentador soterrado de 150 m (2 ductos PVC Ø110, 3 cámaras)." },
+  { name: "TG-PTAS y equipo de medida", pos: [TGX - 4, 5, TGZ - 9], tgt: [TGX, 1.5, TGZ], fb: null, energy: true,
+    txt: "El equipo de medida está aguas abajo del automático general 4x400 A: si el general no está cerrado, el medidor no registra y ningún tablero tiene tensión. Con el general cerrado, la energía sale por los subalimentadores soterrados a cada T.D.F.yC." },
+  { name: "PEAS enterrado – TK-PEAS [FB1]", pos: PITCAM, tgt: [PX - 0.2, PY - 0.6, PZ + 0.8], fb: "FB1", well: true,
+    txt: "Con la válvula XV-PEAS-101 abierta el estanque se llena. Al llegar a LSH-PEAS parte la bomba (BBA-Peas-01 antes de las 12:00, BBA-Peas-02 después) y se abre XV-PEAS-ECU-102. La bomba para en LSL-PEAS." },
+  { name: "Ecualizador – TK-ECUALIZADOR [FB2]", pos: [46, 11, 4], tgt: [EX, 1.4, EZ], fb: "FB2",
+    txt: "Los sopladores airean el estanque con la válvula XV-ECU-AIR-202 abierta (PIC-ECU-AIR). Con LSH-ECU parten las 5 bombas sumergibles hacia los reactores; paran con LSL-ECU." },
+  { name: "Reactores – TK-REACTOR [FB3]", pos: [24, 15, 20], tgt: [10, 1.4, -1.2], fb: "FB-R1",
+    txt: "Con las bombas del ecualizador en marcha y Fluido-1 ≥ 80 se abren XV-REACTOR-301 a 305; cada una cierra con el nivel del reactor sobre 90 %. Los sopladores airean cada reactor." },
+  { name: "Cloración – CLORADOR [FB14]", pos: [13, 7.5, -1.5], tgt: [9.2, 1.2, -7.5], fb: "FB-C1",
+    txt: "Las bombas dosificadoras BBA-Cloro-1/2 mantienen el cloro entre 2 y 6 mg/L. Con cloro sobre 1 mg/L y el acumulador sin nivel alto se abre XV-TK-ACU-40n." },
+  { name: "TK Acumuladores", pos: [4, 13, 20], tgt: [-8, 1.8, -1.2], fb: "FB-C1",
+    txt: "Cinco estanques reciben el agua clorada por XV-TK-ACU-401 a 405; cada válvula cierra con su LSH-ACUMULADOR." },
+  { name: "Agua tratada y cachimba – AGUA-TRATADA [FB13]", pos: [-14, 8, 22], tgt: [-23, 2, 9.6], fb: "FB13",
+    txt: "Con LSH-ACUMULADOR-1 parten las bombas centrífugas (alternadas por hora) y se abre XV-Cachimba para cargar el camión aljibe. Paran con LSL-ACUMULADOR-1." },
+  { name: "Camiones aljibe regando el camino", pos: [20, 16, 44], tgt: [10, 0, 22], fb: "FB13", follow: true,
+    txt: "Cada camión entra a la cachimba (Camion-Presente = 1) y las centrífugas lo llenan. Al llenarse (Camion-Lleno = 1) se corta el agua, el camión sale a regar el camino perimetral y, cuando se le acaba el agua, vuelve a cargar." },
+  { name: "Tableros y red PROFINET", pos: [26, 5, 20], tgt: [RX1 + 6.4, 1.3, 11], fb: null,
+    txt: "Tablero de control con PLC-1 y T.D.G. con HMI TP1200. Toca cualquier tablero para ver su plan de mantenimiento." },
+];
+var curSt = 0;
+function goStation(i) {
+  curSt = (i + STATIONS.length) % STATIONS.length; var s = STATIONS[curSt];
+  var to = new V().fromArray(s.pos), tt = new V().fromArray(s.tgt);
+  var P = [cam.pos.clone()], Tg = [cam.tgt.clone()];
+  if (inWell(cam.pos) && !s.well) { P.push(new V().fromArray(PITTOP)); Tg.push(new V(PX, 3, PZ - 3)); P.push(new V().fromArray(PITHIGH)); Tg.push(new V(PX - 4, 1, PZ - 6)); }
+  if (s.well && !inWell(cam.pos)) { P.push(new V().fromArray(PITHIGH)); Tg.push(new V(PX, -2, PZ)); P.push(new V().fromArray(PITTOP)); Tg.push(new V(PX, PY, PZ)); }
+  P.push(to); Tg.push(tt);
+  cam.path = { P: P, Tg: Tg }; cam.t = 0; cam.dur = 1.6 + (P.length - 2) * 1.3;
+  UI.station(s);
+}
+
+function ease(t) { return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2; }
+function lerpPath(arr, t) { var n = arr.length - 1, f = t * n, i = Math.min(n - 1, Math.floor(f)); return new V().lerpVectors(arr[i], arr[i + 1], f - i); }
+function updCam(dt) {
+  if (cam.path) {
+    cam.t += dt / cam.dur; var e = ease(Math.min(1, cam.t));
+    cam.pos.copy(lerpPath(cam.path.P, e)); cam.tgt.copy(lerpPath(cam.path.Tg, e));
+    if (cam.t >= 1) cam.path = null;
+  }
+  setCam();
+}
+// control manual: arrastrar = girar, rueda / pellizco = zoom
+var drag = null, pinch = null;
+function orbit(dx, dy) {
+  var off = new V().subVectors(cam.pos, cam.tgt), r = off.length();
+  var th = Math.atan2(off.x, off.z) - dx * 0.006, ph = Math.acos(Math.max(-1, Math.min(1, off.y / r))) - dy * 0.006;
+  var under = cam.tgt.y < 0; ph = Math.max(0.15, Math.min(under ? 2.6 : 1.5, ph));
+  off.set(r * Math.sin(ph) * Math.sin(th), r * Math.cos(ph), r * Math.sin(ph) * Math.cos(th)); cam.pos.copy(cam.tgt).add(off);
+}
+function zoom(f) {
+  var off = new V().subVectors(cam.pos, cam.tgt), r = off.length() * f;
+  var lim = cam.tgt.y < 0 ? [0.8, 2.4] : [3, 140]; r = Math.max(lim[0], Math.min(lim[1], r));
+  cam.pos.copy(cam.tgt).add(off.setLength(r));
+}
+var cvs = renderer.domElement, down = null;
+cvs.addEventListener("pointerdown", function (e) { drag = { x: e.clientX, y: e.clientY }; down = { x: e.clientX, y: e.clientY, t: Date.now() }; cam.path = null; UI.stopTour(); });
+window.addEventListener("pointermove", function (e) { if (!drag || pinch) return; orbit(e.clientX - drag.x, e.clientY - drag.y); drag = { x: e.clientX, y: e.clientY }; });
+window.addEventListener("pointerup", function (e) {
+  if (down && Math.hypot(e.clientX - down.x, e.clientY - down.y) < 6 && Date.now() - down.t < 400) doPick(e);
+  drag = null; down = null;
+});
+cvs.addEventListener("wheel", function (e) { e.preventDefault(); zoom(e.deltaY > 0 ? 1.1 : 0.9); }, { passive: false });
+cvs.addEventListener("touchstart", function (e) { if (e.touches.length === 2) { pinch = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY); } }, { passive: true });
+cvs.addEventListener("touchmove", function (e) {
+  if (e.touches.length === 2 && pinch) { var d = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY); zoom(pinch / d); pinch = d; }
+}, { passive: true });
+cvs.addEventListener("touchend", function (e) { if (e.touches.length < 2) pinch = null; }, { passive: true });
+var ray = new THREE.Raycaster(), mv = new THREE.Vector2();
+function doPick(e) {
+  var r = cvs.getBoundingClientRect(); mv.set((e.clientX - r.left) / r.width * 2 - 1, -(e.clientY - r.top) / r.height * 2 + 1);
+  ray.setFromCamera(mv, camera); var hit = ray.intersectObjects(pickables, false)[0];
+  if (hit) UI.info(hit.object.userData.info);
+}
+
+// ===================== resaltar equipos accionados por el ladder =====================
+var rings = [];
+var RINGMAT = new THREE.MeshBasicMaterial({ color: 0x22c55e, transparent: true, opacity: 0.9, depthTest: false });
+var RINGMAT2 = new THREE.MeshBasicMaterial({ color: 0xef4444, transparent: true, opacity: 0.9, depthTest: false });
+function highlight(tag, on) {
+  var o = TAGOBJ[tag]; if (!o) return;
+  var p = new V(); o.getWorldPosition(p);
+  var m = new THREE.Mesh(new THREE.TorusGeometry(0.9, 0.07, 8, 40), (on ? RINGMAT : RINGMAT2).clone());
+  m.position.copy(p).add(new V(0, 0.6, 0)); m.rotation.x = Math.PI / 2; m.renderOrder = 999; scene.add(m);
+  rings.push({ m: m, t: 0 });
+}
+var callouts = [];
+function callout(tag, text, on) {
+  var o = TAGOBJ[tag]; if (!o) return; var p = new V(); o.getWorldPosition(p);
+  var sp = label(text, { h: 0.5, bg: on ? "rgba(22,163,74,0.95)" : "rgba(220,38,38,0.95)" });
+  sp.material.depthTest = false; sp.renderOrder = 1000;
+  var y0 = p.y + (o.isMesh ? 0.9 : 2.6) + callouts.filter(function (c) { return c.tag === tag; }).length * 0.6;
+  sp.position.set(p.x, y0, p.z); scene.add(sp); callouts.push({ s: sp, t: 0, y0: y0, tag: tag });
+}
+function updCallouts(dt) {
+  for (var i = callouts.length - 1; i >= 0; i--) {
+    var c = callouts[i]; c.t += dt; c.s.position.y = c.y0 + c.t * 0.25;
+    c.s.material.opacity = c.t < 3.2 ? 1 : Math.max(0, 1 - (c.t - 3.2) / 0.8);
+    if (c.t > 4) { scene.remove(c.s); c.s.material.map.dispose(); callouts.splice(i, 1); }
+  }
+}
+function updRings(dt) {
+  updCallouts(dt);
+  for (var i = rings.length - 1; i >= 0; i--) {
+    var r = rings[i]; r.t += dt; var k = r.t / 2.2;
+    r.m.scale.setScalar(1 + k * 1.6); r.m.material.opacity = Math.max(0, 0.95 * (1 - k));
+    if (k >= 1) { scene.remove(r.m); r.m.geometry.dispose(); rings.splice(i, 1); }
+  }
+}
+function focusTag(tag) {
+  var o = TAGOBJ[tag]; if (!o) return false; var p = new V(); o.getWorldPosition(p);
+  var to, tt = p.clone().add(new V(0, 0.6, 0));
+  if (p.y < -0.5 && inPitXZ(p)) { to = new V().fromArray(PITCAM); }
+  else to = p.clone().add(new V(3.5, 3.2, 6));
+  var P = [cam.pos.clone()], Tg = [cam.tgt.clone()];
+  var inside = to.y < 0;
+  if (inWell(cam.pos) && !inside) { P.push(new V().fromArray(PITTOP)); Tg.push(new V(PX, 3, PZ - 3)); }
+  if (inside && !inWell(cam.pos)) { P.push(new V().fromArray(PITHIGH)); Tg.push(new V(PX, -2, PZ)); P.push(new V().fromArray(PITTOP)); Tg.push(new V(PX, PY, PZ)); }
+  P.push(to); Tg.push(tt); cam.path = { P: P, Tg: Tg }; cam.t = 0; cam.dur = 1.2 + (P.length - 2) * 1.2;
+  highlight(tag, true); return true;
+}
+
+// ===================== bucle =====================
+function resize() { var w = wrap.clientWidth, h = wrap.clientHeight; renderer.setSize(w, h); camera.aspect = w / h; camera.updateProjectionMatrix(); }
+window.addEventListener("resize", resize); resize();
+var last = performance.now();
+function loop(now) {
+  var dt = Math.min(0.1, (now - last) / 1000); last = now;
+  step(dt); syncVisual(dt); updRings(dt); updCam(dt); UI.tick(dt);
+  renderer.render(scene, camera); requestAnimationFrame(loop);
+}
+setCam();
+window.SCENE = { goStation: goStation, highlight: highlight, callout: callout, focusTag: focusTag, hasTag: function (t) { return !!TAGOBJ[t]; }, STATIONS: STATIONS, labels: function (v) { scene.traverse(function (o) { if (o.userData.isLabel) o.visible = v; }); } };
+requestAnimationFrame(loop);
+})();
+document.getElementById("loading").remove(); UI.init(); }
 </script>
-</body>
-</html>
+</body></html>
